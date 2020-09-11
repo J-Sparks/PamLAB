@@ -1,0 +1,74 @@
+---
+title: "Association Rule analysis_Average GPA 1st Fall UWF"
+output: html_notebook
+---
+
+```{r}
+#FTIC 2016 to 2019 uwf for 1st term demographic and 1st term gpa (average 2.77) as factor ( >=2.7 or not)
+# age <= 19 ( average 18.9)
+#all variables should be factors
+ GPAFTIC_1st_term_association <- read.csv("~/averageGPAUWF_associationRule/GPAFTIC_1st_term_association.csv", stringsAsFactors=TRUE)
+GPAFTIC_1st_term_association[,-1] #delet row numbers
+summary(GPAFTIC_1st_term_association[,-1])
+```
+```{r}
+xtabs(~GPAFTIC_1st_term_association$UWFpriorhours) # filter for 0
+xtabs(~GPAFTIC_1st_term_association$UniPriorhours) #filter for 0
+xtabs(~GPAFTIC_1st_term_association$County)
+
+```
+
+```{r}
+#recolnames
+GPAFTIC_1st_term_associationDF <- GPAFTIC_1st_term_association %>% 
+  filter(UWFpriorhours<= 0) %>% 
+  filter(UniPriorhours<= 0) %>% 
+  select(Gender,
+         County,
+        Ethnicity,
+         #college,
+         Department="Stu_Department",
+        ResidenceHall,
+         #Division="Stu_DivisionCode",
+         #Major="Stu_MajorDesc",
+         averageGPA1stFall)
+summary(GPAFTIC_1st_term_associationDF)
+```
+```{r}
+# need libraries
+library(arules)
+library(arulesViz)
+
+```
+
+```{r}
+
+# convert data as table
+TT <- summary(GPAFTIC_1st_term_associationDF)
+TT
+write.table(TT,"tableaverageGPA.csv",sep=",")
+```
+
+```{r}
+newGPAassociationDF <- as(GPAFTIC_1st_term_associationDF,"transactions")
+itemFrequencyPlot(newGPAassociationDF, topN=10)
+itemFrequencyPlot(newGPAassociationDF, support=0.1)
+```
+```{r}
+# results for above2.7
+rules_01 <- apriori(newGPAassociationDF,parameter = list(minlen=1, maxlen=6, conf=.001), 
+                    appearance = list(rhs=c("averageGPA1stFall=Above2.7"), default = "lhs"))
+results <- inspect(head(sort(rules_01, by="lift"),15))
+results
+```
+```{r}
+#results below2.7
+rules_02 <- apriori(newGPAassociationDF,parameter = list(minlen=1, maxlen=6, conf=.001), 
+                    appearance = list(rhs=c("averageGPA1stFall=Below2.7"), default = "lhs"))
+results2 <- inspect(head(sort(rules_02, by="lift"),9))
+results2
+```
+```{r}
+plot(rules_01, method="graph") #grouped
+```
+
