@@ -1,0 +1,177 @@
+---
+title: "Predition_1st TErm UWF GPA"
+author: "JS"
+date: "8/31/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(readr)
+library(readr)
+SDCompletedCropoutAllvariables08032020JAY <- read_csv("~/Dropout_R/SDCompletedCropoutAllvariables08032020JAY.txt", 
+    col_types = cols(X1 = col_skip()))
+glimpse(SDCompletedCropoutAllvariables08032020JAY)
+```
+```{r}
+xtabs(~SDCompletedCropoutAllvariables08032020JAY$Prior_Hours)
+xtabs(~SDCompletedCropoutAllvariables08032020JAY$Prior_Hours)
+hist(SDCompletedCropoutAllvariables08032020JAY$UWFGPA1stTerm)
+```
+
+```{r}
+library(dplyr)
+# choose variables to predict UWF 1st term GPA
+Term1UWFGPA <- SDCompletedCropoutAllvariables08032020JAY %>% #FTIC2018 and 2019 HMCSE
+  select("PriorHours"=Prior_Hours,"GPAHS"=GPA_HIGHSCHOOL, ReStartMajor,Gender,ReEthnicity,ReCounty ,ReFirstMathCrs,UWFGPA1stTerm, UWFHour1stTerm,,ENC1101,CHM2045,BSC2010,BSC2844,PSY2012) %>% 
+  mutate(UWF1stTermTGP=UWFGPA1stTerm*UWFHour1stTerm);glimpse(Term1UWFGPA)#,FirstTermCRSs,UWFHour1stTerm
+```
+```{r}
+p <- function(x){sum(is.na(x))/length(x)*100}
+apply(Term1UWFGPA, 2, p)
+```
+```{r}
+Term1UWFGPAPrior0 <- Term1UWFGPA %>% 
+  filter(PriorHours < 1);xtabs(~Term1UWFGPAPrior0$UWFHour1stTerm) #filter UWF Hours above 12
+glimpse(Term1UWFGPAPrior0)
+```
+
+```{r}
+Term1UWFGPAabove12hrs <- Term1UWFGPAPrior0 %>% 
+  filter(UWFHour1stTerm > 11 ) %>% 
+  filter(ReFirstMathCrs == "MAC1147")  %>% 
+  select(-"PriorHours",-"UWFGPA1stTerm",-"UWFHour1stTerm",-"logUWF1stTermTGP",-"ReFirstMathCrs");glimpse(Term1UWFGPAabove12hrs)
+#test normality
+hist(Term1UWFGPAabove12hrs$UWF1stTermTGP) 
+shapiro.test(Term1UWFGPAabove12hrs$UWF1stTermTGP) 
+qqnorm(Term1UWFGPAabove12hrs$UWF1stTermTGP)# the data is normal
+
+```
+```{r}
+hist(Term1UWFGPAabove12hrs$UWFHour1stTerm)
+xtabs(~Term1UWFGPAabove12hrs$UWFHour1stTerm) # will filter Term hours between 12 to 15
+```
+```{r}
+#descriptive STAT
+TabTerm1UWFGPAabove12hrs <- Term1UWFGPAabove12hrs %>% 
+  group_by(Gender, ReCounty,ReStartMajor    ) %>% 
+ summarise(mean_Fall_GPA = mean(UWFGPA1stTerm), mean_Fall_hrs=mean(UWFHour1stTerm),count=n())
+TabTerm1UWFGPAabove12hrs
+```
+
+```{r}
+m1 <- summary(lm(UWF1stTermTGP~.,Term1UWFGPAabove12hrs ))
+m2 <- summary(update(m1,~.+ENC1101*Gender))
+m3<- summary(update(m2,~. +ReCounty*ENC1101 ))
+m4 <- summary(update(m3,~.-ReCounty ))
+m5 <- summary(update(m4,~.-Gender))
+m1
+m2
+m3
+m4
+m5
+```
+
+```{r}
+library(tidyr)
+library(broom)
+#construct three models and use tidy function to convert exah model to a data frame
+m1 <- tidy(lm(UWFGPA1stTerm~PriorHours,Term1UWFGPA ))
+m2 <- tidy(lm(UWFGPA1stTerm~PriorHours+GPAHS,Term1UWFGPA ))
+m3 <- tidy(lm(UWFGPA1stTerm~PriorHours+GPAHS+FirstMathCrs,Term1UWFGPA ))
+
+```
+
+```{r}
+
+all_models <- rbind(
+  m1 %>% mutate(model =1),
+  m2 %>% mutate(model =2),
+   m3 %>% mutate(model =3)
+)
+all_models
+```
+```{r}
+# mkae the all_models looks like regression tables
+all_table <- all_models %>%
+    select(-statistic) %>%
+    mutate_each(funs(round(., 4)), -term) %>% 
+    gather(key, value, estimate:std.error) %>%
+    spread(model, value) 
+
+all_table
+```
+```{r}
+#write tables
+write.table(all_table, file = "all_model_tabp.txt", sep = ",", quote = FALSE, row.names = F)
+```
+################
+#Term1UWFGPA Prior hours = 0####
+###############
+```{r}
+Term1UWFGPAPrior_0  <-  Term1UWFGPA %>% 
+  filter(PriorHours < 1);hist(Term1UWFGPAPrior_0$GPAHS)
+
+
+```
+```{r}
+glimpse(Term1UWFGPAPrior_0)
+```
+
+###############################
+##### use Term1UWFGPAPrior_0###
+###############################
+```{r}
+mp1 <- summary(lm(UWFGPA1stTerm~Gender+ENC1101+CHM2045+BSC2010+BSC2844+PSY2012+ReFirstMathCrs,Term1UWFGPAPrior_0 ))
+mp1_1 <- summary(lm(UWFGPA1stTerm~Gender+GPAHS+ReEthnicity,Term1UWFGPAPrior_0))
+mp2<- summary(lm(UWFGPA1stTerm~ReStartMajor*Gender,Term1UWFGPAPrior_0 ))
+mp3 <- summary(lm(UWFGPA1stTerm~ReFirstMathCrs*ReEthnicity,Term1UWFGPAPrior_0 ))
+mp4 <- summary(update(mp2,~.+Gender*ReFirstMathCrs))
+mp1
+mp1_1
+mp2
+mp3
+mp4
+```
+```{r}
+#choose cols for mice
+New_FTIC_df <- FTIC_1stFallTermDF %>% 
+  select(Stu_College,Stu_Department,Stu_MajorDesc,Stu_Ethnicity,Stu_County,PriorHrs,"UWFPriorHrs" = Stu_TotalInstHours,"UWFPriorTGP"=
+         Stu_TotalInstGradePoints,Stu_CurrentTermLoad,Stu_GPAHighSchool,contains("ACT"),51:52 );glimpse(New_FTIC_df)
+
+New_FTIC_df_test0 <- select(New_FTIC_df, -15)
+New_FTIC_df_test1 <- select(New_FTIC_df_test0, -15)
+glimpse(New_FTIC_df_test1)
+
+#impute NAs
+impute1 <- mice(New_FTIC_df_test1[, 10:15], m=3, seed = 1234 ) 
+NewHSGPAACT <- complete(impute1, 3)
+halfdata <- select(New_FTIC_df_test1,1:9,16:17)
+completeDFFTICACT <- cbind(halfdata, NewHSGPAACT);glimpse(completeDFFTICACT)
+apply(completeDFFTICACT, 2, p);glimpse(completeDFFTICACT)
+```
+
+
+```{r}
+FTIC_prior_0_com <- completeDFFTICACT %>% 
+  filter(PriorHrs<=0);xtabs(~FTIC_prior_0_com$Stu_College)
+```
+```{r}
+cordata <- select(FTIC_prior_0_com,6:17 )
+round(cor(cordata),2)
+```
+
+```{r}
+#ML
+mmmm1<- lm(GPA1stFall~.,FTIC_prior_0_com )
+summary(mmmm1)
+```
+```{r}
+library(car)
+vif(mmm1)
+```
+
