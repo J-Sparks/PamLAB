@@ -1,0 +1,37 @@
+---
+title: "HS GPA Trends"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+myTierdata <- V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier
+xtabs(~myTierdata$APPLICANT_TIER+myTierdata$COHORT_YEAR)
+# counts tier by cohort                                                             
+```
+# since 2017 more tier 1 and 2 and less tier 4 and 5
+```{r}
+Tiers <- myTierdata %>% 
+  group_by(COHORT_YEAR) %>% 
+  summarise(meanHSGPA = mean(GPA_HIGHSCHOOL, na.rm=TRUE), meanAP = mean(AP_CREDITS,na.rm=TRUE), meanPrior=mean(HOURS_BROUGHT_TO_UNIVERSITY,na.rm=TRUE),cFTIC=n(), groups="drop");Tiers
+# mean HS GPA, AP, Prior and headcountFTIC
+```
+```{r}
+Tiers <- myTierdata %>% 
+  group_by(ENTRY_COLLEGE,COHORT_YEAR) %>% 
+  summarise(meanHSGPA = mean(GPA_HIGHSCHOOL, na.rm=TRUE), meanAP = mean(AP_CREDITS,na.rm=TRUE), meanPrior=mean(HOURS_BROUGHT_TO_UNIVERSITY,na.rm=TRUE),cFTIC=n(), groups="drop");Tiers
+# mean HS GP by College
+```
+
+```{r}
+Tiers <- myTierdata %>% 
+  filter(COHORT_YEAR==20202021) %>% 
+  group_by(ENTRY_COLLEGE,COHORT_YEAR) %>% 
+  summarise(meanHSGPA = mean(GPA_HIGHSCHOOL, na.rm=TRUE),cFTIC=n())
+head(Tiers, 35)
+# mean HS GPA for 2020FTIC by College
+```
+
