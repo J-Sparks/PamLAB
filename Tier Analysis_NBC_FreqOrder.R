@@ -1,6 +1,9 @@
+
+
 ### Import data
 
 library(readr)
+library(dplyr)
 V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier <- 
   read.csv("~/Data_IR/V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier.csv", stringsAsFactors=TRUE)
 glimpse(V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier)
@@ -13,7 +16,7 @@ aveGPANB<- V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier %>%
          "CRSNAME1",  "CRSNAME2",  "CRSNAME3",  "CRSNAME4", 
          "HOURS_BROUGHT_TO_UNIVERSITY","FIRST_FALL_PELL_AMOUNT","FIRST_FALL_BRIGHT_FUTURES_AMOUNT","AGE_AT_ENTRY",
          79:84) %>% 
-  filter(COHORT_YEAR < 20202021 & ENTRY_COLLEGE=="HMCSE")  
+  filter(COHORT_YEAR < 20202021)# & ENTRY_COLLEGE=="HMCSE")  
 
 
 ### NEW DATA ###
@@ -23,7 +26,9 @@ aveGPANB2020 <- V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier %>%
          "CRSNAME1",  "CRSNAME2",  "CRSNAME3",  "CRSNAME4", 
          "HOURS_BROUGHT_TO_UNIVERSITY","FIRST_FALL_PELL_AMOUNT","FIRST_FALL_BRIGHT_FUTURES_AMOUNT","AGE_AT_ENTRY",
          79:84) %>% 
-  filter(COHORT_YEAR == 20202021 & ENTRY_COLLEGE=="HMCSE") 
+  filter(COHORT_YEAR == 20202021)# & ENTRY_COLLEGE=="HMCSE") 
+
+
 
 ## Data Partitions ############################
 library(rsample)  # data splitting 
@@ -56,25 +61,26 @@ table(aveGPAIndTestingSet$aveGPAInd) %>% prop.table()
 
 ### models
 #TRAIN SET
-aveGPANB_modelt1 <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt1 <- naive_bayes(aveGPAInd ~ENTRY_COLLEGE+ AP_CREDITS+GENDER++ETHNICITY+
                                   HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                   FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                   ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                   CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                data = aveGPAIndtTrainingSet, usekernel = TRUE)
+                                data = aveGPAIndtTrainingSet, usekernel = FALSE)
 #TEST SET
-aveGPANB_modelt1t <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt1t <- naive_bayes(aveGPAInd ~  ENTRY_COLLEGE+AP_CREDITS+GENDER++ETHNICITY+
                                    HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                    FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                    ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                    CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4,  
-                                 data = aveGPAIndTestingSet, usekernel = TRUE)
+                                 data = aveGPAIndTestingSet, usekernel = FALSE)
 
 confTier1 <- confusionMatrix(predict(aveGPANB_modelt1), aveGPAIndtTrainingSet$aveGPAInd) 
 confTier1t <- confusionMatrix(predict(aveGPANB_modelt1t), aveGPAIndTestingSet$aveGPAInd) 
 ### export the results
 p1 <-  predict(aveGPANB_modelt1, aveGPAIndtTrainingSet, type="prob")
 results1 <- cbind(aveGPAIndtTrainingSet,p1)
+results1t <- cbind(aveGPAIndTestingSet,predict(aveGPANB_modelt1t, aveGPAIndTestingSet, type="prob"))
 
 ### NEW data2020
 DF2020 <- aveGPANB2020 %>% 
@@ -91,7 +97,7 @@ DF <- aveGPANB %>%
 
 
 set.seed(1234)
-TrainingIndex <- createDataPartition(DF$aveGPAInd, p=0.7, list = FALSE)
+TrainingIndex <- createDataPartition(DF$aveGPAInd, p=0.8, list = FALSE)
 aveGPAIndtTrainingSet <- DF[TrainingIndex,] # Training Set
 aveGPAIndTestingSet <- DF[-TrainingIndex,] # Test Set
 class(aveGPAIndTestingSet)
@@ -101,19 +107,19 @@ table(aveGPAIndTestingSet$aveGPAInd) %>% prop.table()
 
 ### models
 #TRAIN SET
-aveGPANB_modelt2 <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt2 <- naive_bayes(aveGPAInd ~ ENTRY_COLLEGE+AP_CREDITS+GENDER++ETHNICITY+
                                   HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                   FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                   ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                   CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                data = aveGPAIndtTrainingSet, usekernel = TRUE)
+                                data = aveGPAIndtTrainingSet, usekernel = FALSE)
 #TEST SET
-aveGPANB_modelt2t <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt2t <- naive_bayes(aveGPAInd ~  ENTRY_COLLEGE+AP_CREDITS+GENDER++ETHNICITY+
                                    HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                    FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                    ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                    CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                 data = aveGPAIndTestingSet, usekernel = TRUE)
+                                 data = aveGPAIndTestingSet, usekernel = FALSE)
 
 
 confTier2 <- confusionMatrix(predict(aveGPANB_modelt2), aveGPAIndtTrainingSet$aveGPAInd) 
@@ -121,6 +127,7 @@ confTier2t <- confusionMatrix(predict(aveGPANB_modelt2t), aveGPAIndTestingSet$av
 
 p2 <-  predict(aveGPANB_modelt2, aveGPAIndtTrainingSet, type="prob")
 results2 <- cbind(aveGPAIndtTrainingSet,p2)
+results2t <- cbind(aveGPAIndTestingSet,predict(aveGPANB_modelt2t, aveGPAIndTestingSet, type="prob"))
 
 ### NEW data2020
 DF2020 <- aveGPANB2020 %>% 
@@ -147,24 +154,25 @@ table(aveGPAIndTestingSet$aveGPAInd) %>% prop.table()
 ### models
 library(naivebayes)
 #TRAIN SET
-aveGPANB_modelt3 <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt3 <- naive_bayes(aveGPAInd ~  ENTRY_COLLEGE+AP_CREDITS+GENDER++ETHNICITY+
                                   HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                   FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                   ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                   CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                data = aveGPAIndtTrainingSet, usekernel = TRUE)
+                                data = aveGPAIndtTrainingSet, usekernel = FALSE)
 #TEST SET
-aveGPANB_modelt3t <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt3t <- naive_bayes(aveGPAInd ~  ENTRY_COLLEGE+AP_CREDITS+GENDER++ETHNICITY+
                                    HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                    FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                    ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                    CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                 data = aveGPAIndTestingSet, usekernel = TRUE)
+                                 data = aveGPAIndTestingSet, usekernel = FALSE)
 
 confTier3 <- confusionMatrix(predict(aveGPANB_modelt3), aveGPAIndtTrainingSet$aveGPAInd) 
 confTier3t <- confusionMatrix(predict(aveGPANB_modelt3t), aveGPAIndTestingSet$aveGPAInd) 
 p3 <-  predict(aveGPANB_modelt3, aveGPAIndtTrainingSet, type="prob")
 results3 <- cbind(aveGPAIndtTrainingSet,p3)
+results3t <- cbind(aveGPAIndTestingSet,predict(aveGPANB_modelt3t, aveGPAIndTestingSet, type="prob"))
 
 ### NEW data2020
 DF2020 <- aveGPANB2020 %>% 
@@ -180,7 +188,7 @@ DF <- aveGPANB %>%
 
 
 set.seed(1234)
-TrainingIndex <- createDataPartition(DF$aveGPAInd, p=0.7, list = FALSE)
+TrainingIndex <- createDataPartition(DF$aveGPAInd, p=0.9, list = FALSE)
 aveGPAIndtTrainingSet <- DF[TrainingIndex,] # Training Set
 aveGPAIndTestingSet <- DF[-TrainingIndex,] # Test Set
 class(aveGPAIndTestingSet)
@@ -191,25 +199,26 @@ table(aveGPAIndTestingSet$aveGPAInd) %>% prop.table()
 ### models
 library(naivebayes)
 #TRAIN SET
-aveGPANB_modelt4 <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt4 <- naive_bayes(aveGPAInd ~  ENTRY_COLLEGE+AP_CREDITS+GENDER++ETHNICITY+
                                   HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                   FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                   ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                   CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                data = aveGPAIndtTrainingSet, usekernel = TRUE)
+                                data = aveGPAIndtTrainingSet, usekernel = FALSE)
 #TEST SET
-aveGPANB_modelt4t <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt4t <- naive_bayes(aveGPAInd ~ ENTRY_COLLEGE+ AP_CREDITS+GENDER++ETHNICITY+
                                    HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                    FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                    ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                    CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                 data = aveGPAIndTestingSet, usekernel = TRUE)
+                                 data = aveGPAIndTestingSet, usekernel = FALSE)
 
 
 confTier4 <- confusionMatrix(predict(aveGPANB_modelt4), aveGPAIndtTrainingSet$aveGPAInd) 
 confTier4t <- confusionMatrix(predict(aveGPANB_modelt4t), aveGPAIndTestingSet$aveGPAInd) 
 p4 <-  predict(aveGPANB_modelt4, aveGPAIndtTrainingSet, type="prob")
 results4 <- cbind(aveGPAIndtTrainingSet,p4)
+results4t <- cbind(aveGPAIndTestingSet,predict(aveGPANB_modelt4t, aveGPAIndTestingSet, type="prob"))
 
 ### NEW data2020
 DF2020 <- aveGPANB2020 %>% 
@@ -225,7 +234,7 @@ DF <- aveGPANB %>%
 
 
 set.seed(1234)
-TrainingIndex <- createDataPartition(DF$aveGPAInd, p=0.7, list = FALSE)
+TrainingIndex <- createDataPartition(DF$aveGPAInd, p=0.9, list = FALSE)
 aveGPAIndtTrainingSet <- DF[TrainingIndex,] # Training Set
 aveGPAIndTestingSet <- DF[-TrainingIndex,] # Test Set
 class(aveGPAIndTestingSet)
@@ -236,25 +245,26 @@ table(aveGPAIndTestingSet$aveGPAInd) %>% prop.table()
 ### models
 library(naivebayes)
 #TRAIN SET
-aveGPANB_modelt5 <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt5 <- naive_bayes(aveGPAInd ~  ENTRY_COLLEGE+AP_CREDITS+GENDER++ETHNICITY+
                                   HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                   FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                   ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                   CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                data = aveGPAIndtTrainingSet, usekernel = TRUE)
+                                data = aveGPAIndtTrainingSet, usekernel = FALSE)
 #TEST SET
-aveGPANB_modelt5t <- naive_bayes(aveGPAInd ~ AP_CREDITS+GENDER++ETHNICITY+
+aveGPANB_modelt5t <- naive_bayes(aveGPAInd ~  ENTRY_COLLEGE+AP_CREDITS+GENDER++ETHNICITY+
                                    HOURS_BROUGHT_TO_UNIVERSITY+FIRST_FALL_PELL_AMOUNT+
                                    FIRST_FALL_BRIGHT_FUTURES_AMOUNT+AGE_AT_ENTRY+
                                    ENTRY_PROGRAM+HIGH_SCHOOL_NAME+COUNTY+
                                    CRSNAME1+CRSNAME2+CRSNAME3+CRSNAME4, 
-                                 data = aveGPAIndTestingSet, usekernel = TRUE)
+                                 data = aveGPAIndTestingSet, usekernel = FALSE)
 
 
 confTier5 <- confusionMatrix(predict(aveGPANB_modelt5), aveGPAIndtTrainingSet$aveGPAInd) 
 confTier5t <- confusionMatrix(predict(aveGPANB_modelt5t), aveGPAIndTestingSet$aveGPAInd) 
 p5 <-  predict(aveGPANB_modelt5, aveGPAIndtTrainingSet, type="prob")
 results5 <- cbind(aveGPAIndtTrainingSet,p5)
+results5t <- cbind(aveGPAIndTestingSet,predict(aveGPANB_modelt5t, aveGPAIndTestingSet, type="prob"))
 
 ### NEW data2020
 DF2020 <- aveGPANB2020 %>% 
@@ -276,20 +286,47 @@ accuracy_Test <- c(round(confTier1t$overall["Accuracy"], 3),
                    round(confTier3t$overall["Accuracy"], 3),
                    round(confTier4t$overall["Accuracy"], 3),
                    round(confTier5t$overall["Accuracy"], 3))
-accuracy_CI <- c(round(confTier1$overall["AccuracyPValue"], 3),
-                    round(confTier2$overall["AccuracyPValueI"], 3),
-                    round(confTier3$overall["AccuracyPValue"], 3),
-                    round(confTier4$overall["AccuracyPValue"], 3),
-                    round(confTier5$overall["AccuracyPValue"], 3))
+accuracy_McnemarPvalue <- c(round(confTier1$overall["McnemarPValue"], 3),
+                    round(confTier2$overall["McnemarPValue"], 3),
+                    round(confTier3$overall["McnemarPValue"], 3),
+                    round(confTier4$overall["McnemarPValue"], 3),
+                    round(confTier5$overall["McnemarPValue"], 3))
 
-accyFreqEACH <- data.frame(models, accuracy_Train, accuracy_Test,accuracy_CI)
+accyFreqEACHUWF <- data.frame(models, accuracy_Train, accuracy_Test,accuracy_McnemarPvalue)
 
 
 ##export results
 
-rowresultsV3 <- rbind.data.frame(results1, results2, results3, results4, results5,results12020,results22020,
+rowresultsUWF <- rbind.data.frame(results1, results2, results3, results4, results5,
+                                  results1t,results2t,results3t,results4t,results5t,
+                                  results12020,results22020,
                                results32020,results42020,results52020)
-write.csv(rowresultsV3, "NBC_By_Tier_resultsV3.csv")
+write.csv(rowresultsUWF, "NBC_By_Tier_resultsUWF.csv")
+
+# AP credits by Tiers
+aveGPANB_modelt1[["tables"]][["AP_CREDITS"]]
+aveGPANB_modelt2[["tables"]][["AP_CREDITS"]]
+aveGPANB_modelt3[["tables"]][["AP_CREDITS"]]
+aveGPANB_modelt4[["tables"]][["AP_CREDITS"]]
+aveGPANB_modelt5[["tables"]][["AP_CREDITS"]]
+#Prior Hours by Tiers
+aveGPANB_modelt1[["tables"]][["HOURS_BROUGHT_TO_UNIVERSITY"]]
+aveGPANB_modelt2[["tables"]][["HOURS_BROUGHT_TO_UNIVERSITY"]]
+aveGPANB_modelt3[["tables"]][["HOURS_BROUGHT_TO_UNIVERSITY"]]
+aveGPANB_modelt4[["tables"]][["HOURS_BROUGHT_TO_UNIVERSITY"]]
+aveGPANB_modelt5[["tables"]][["HOURS_BROUGHT_TO_UNIVERSITY"]]
+#PELL AMOUNT by Tiers
+aveGPANB_modelt1[["tables"]][["FIRST_FALL_PELL_AMOUNT"]]
+aveGPANB_modelt2[["tables"]][["FIRST_FALL_PELL_AMOUNT"]]
+aveGPANB_modelt3[["tables"]][["FIRST_FALL_PELL_AMOUNT"]]
+aveGPANB_modelt4[["tables"]][["FIRST_FALL_PELL_AMOUNT"]]
+aveGPANB_modelt5[["tables"]][["FIRST_FALL_PELL_AMOUNT"]]
+#Bright Future AMOUNT by Tiers
+aveGPANB_modelt1[["tables"]][["FIRST_FALL_BRIGHT_FUTURES_AMOUNT"]]
+aveGPANB_modelt2[["tables"]][["FIRST_FALL_BRIGHT_FUTURES_AMOUNT"]]
+aveGPANB_modelt3[["tables"]][["FIRST_FALL_BRIGHT_FUTURES_AMOUNT"]]
+aveGPANB_modelt4[["tables"]][["FIRST_FALL_BRIGHT_FUTURES_AMOUNT"]]
+aveGPANB_modelt5[["tables"]][["FIRST_FALL_BRIGHT_FUTURES_AMOUNT"]]
 
 
 
