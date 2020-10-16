@@ -1,0 +1,72 @@
+---
+title: "WarningData"
+author: "JS"
+date: "10/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+```
+
+### Using Early Warning DATA for 2020 Fall and Prediction UWF
+```{r}
+library(readr)
+NBC_By_Tier_resultsUWF <- read_csv("NBC_By_Tier_resultsUWF.csv")
+View(NBC_By_Tier_resultsUWF)
+library(readxl)
+EarlyWarning_Results_10_5 <- read_excel("~/WarningData/EarlyWarning Results 10_5.xlsx")
+myearlywarning <- EarlyWarning_Results_10_5
+glimpse(myearlywarning)
+```
+
+```{r NBC_By_Tier_resultsUWF}
+library(readr)
+myUWFPr <- NBC_By_Tier_resultsUWF
+Hmisc::describe(myearlywarning[,1:23])
+
+```
+```{r }
+colnames(myUWFPr)
+myUWFIDwithPr <- myUWFPr %>% 
+  select(UNIV_ROW_ID,COHORT_YEAR,CRSNAME1,CRSNAME2,CRSNAME3,CRSNAME4,BelowGPA)
+
+myUWFPrandWarning <- merge(myUWFIDwithPr, myearlywarning, by.x= "UNIV_ROW_ID", by.y = "Student ID", all.y = TRUE )
+Hmisc::describe(myUWFPrandWarning[,1:6])
+
+```
+```{r myearlywarning}
+library(dplyr)
+glimpse(myearlywarning)
+myearlywarning[1:10,]
+```
+## grep & grepl & regexpr & gregexpr & regexec function for mathching 
+```{r}
+grep("202008_FTIC", myearlywarning$Categories)
+grepl("Full-Time|202008_FTIC|Cohort", myearlywarning$Categories )
+regexpr("202008_FTIC|Full-Time|Cohort", myearlywarning$Categories)
+myearlywarningCN <- gsub("-", "", myearlywarning$`Course Number`)
+myearlywarning$`Course Number` <- myearlywarningCN
+head(myearlywarning,10)
+matchFTIC <- charmatch(c("MAC1105C","MAC1105"), myearlywarning)
+matchFTIC
+```
+
+```{r}
+xtabs(~myearlywarning$`Course Number`+myearlywarning$Classification)
+```
+
+```{r}
+MAC1147 <- filter(myearlywarning, myearlywarning$`Course Number`=="MAC1147")
+xtabs(~MAC1147$`Alert Reasons`)
+MAC1147PoorGrade <-data.frame(filter(MAC1147, MAC1147$`Alert Reasons`=="Poor Grades on Assignments/Quizzes/Tests - EW"))
+Hmisc::describe(MAC1147PoorGrade)
+xtabs(~MAC1147PoorGrade$Major)
+```
+```{r}
+library(tidyr)
+AlterReason <- as.character(myUWFPrandWarning$`Alert Reasons`)
+myUWFPrandWarningdd <- myUWFPrandWarning %>% 
+  separate('Alert Reasons', "Missing/Poor","Assingments/Quizzes/Test", "/", extra = "drop")
+```
