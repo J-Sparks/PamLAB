@@ -65,8 +65,65 @@ Hmisc::describe(MAC1147PoorGrade)
 xtabs(~MAC1147PoorGrade$Major)
 ```
 ```{r}
-library(tidyr)
-AlterReason <- as.character(myUWFPrandWarning$`Alert Reasons`)
-myUWFPrandWarningdd <- myUWFPrandWarning %>% 
-  separate('Alert Reasons', "Missing/Poor","Assingments/Quizzes/Test", "/", extra = "drop")
+#library(tidyr)
+#myUWFPrandWarningdd <- myUWFPrandWarning %>% 
+#  separate('Alert Reasons', "Missing/Poor","Assingments/Quizzes/Test", "/", extra = "drop")
 ```
+### Prediction with Warning data and Prediction for FTIC 2020
+```{r}
+Prediction_FTIC2020_UWF <- read.csv("~/WarningData/Prediction_FTIC2020_UWF.csv", stringsAsFactors=TRUE)
+EarlyWarning_CourseCombos.10.15.20 <- read.csv("~/WarningData/EarlyWarning_CourseCombos 10-15-20.csv", stringsAsFactors=TRUE)
+library(readxl)
+EarlyWarning_Results_All_10_15_20 <- read_excel("C:/Users/jsparks3/Downloads/EarlyWarning Results All 10-15-20.xlsx")
+EWR <- EarlyWarning_Results_All_10_15_20
+V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17 <- read.csv("~/WarningData/V2_1 Early Warning Checkpoint 2 Full Data 10-17.csv", stringsAsFactors=TRUE)
+EWR_INSTR <- V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17
+EWMax <- EarlyWarning_CourseCombos.10.15.20 %>% 
+  group_by(UNIV_ROW_ID) %>% 
+  filter(Number_Courses==max(Number_Courses)) %>% # | Number_Alerts = max(Number_Alerts))
+  filter(Number_Alerts == max(Number_Alerts))
+PredictionPR <- select(Prediction_FTIC2020_UWF, 1,26:27,"COHORT_YEAR" )
+NEWWarningCombo <- merge(EarlyWarning_CourseCombos.10.15.20, PredictionPR, by="UNIV_ROW_ID", all.x = TRUE )
+NEWWarningCombo$aveGPAAPR <- if_else(NEWWarningCombo$Pr.AboveGPA. >= 0.5,"Yes","No")
+NEWWarningCombo <-  NEWWarningCombo %>% 
+  group_by(UNIV_ROW_ID) %>% 
+  arrange(-Pass_Rate) %>% 
+  mutate(NumFTIC=row_number())
+write.csv(NEWWarningCombo,"WarningCombi_aveGPA.csv")
+```
+
+```{r}
+EarlyWarning_CourseCombos.10.15.20 <- read.csv("~/WarningData/EarlyWarning_CourseCombos 10-15-20.csv", stringsAsFactors=TRUE)
+EarlyWarning.Results.All.10.15.20 <- read.csv("~/WarningData/EarlyWarning Results All 10-15-20.csv", stringsAsFactors=TRUE)
+V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17 <- read.csv("~/WarningData/V2_1 Early Warning Checkpoint 2 Full Data 10-17.csv", stringsAsFactors=TRUE)
+library(readxl)
+Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("~/Data_IR/Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx")
+
+ComboCol <- EarlyWarning_CourseCombos.10.15.20 %>% 
+  select(1,Grade,Number_Alerts,Course_Grade)
+
+warningALL <- EarlyWarning.Results.All.10.15.20  %>% 
+  select(Student.ID,"AlertR1"=Alert.Reasons,Course.Name,Course.Number,Section.Name,Progress.Report.Grade)
+CRSNumber <- warningALL$Course.Number
+ CRSNumber <-  gsub("-", "",CRSNumber)
+warningALL$Course.Number <- CRSNumber
+unique(warningALL$Course.Number)
+
+EWcheckP <- V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17 %>% 
+  select(Student.ID,Assigned.Staff,Creator,Creator.Email,"AlertR2"=Alert.Reasons,Course.Dropped.Date)
+
+NBC_aveAPR <- Prediction_NBC_By_Tier_FTIC2020_UWF %>% 
+  select(1:3,5:6,10,13:16,"AboveGPA"=`Pr(AboveGPA)`,"BelowGPA" =`Pr(BelowGPA)`) %>% 
+  mutate(aveAPR = ifelse(AboveGPA>0.5,"aveAPR","Non-aveAPR"));glimpse(NBC_aveAPR)
+
+#merge  them
+data1 <- merge(ComboCol,warningALL, by.x = "UNIV_ROW_ID", by.y="Student.ID", all.y = TRUE)
+data2 <- merge(data1, EWcheckP, by.x = "UNIV_ROW_ID", by.y = "Student.ID", all.x = TRUE)
+data3 <- merge(warningALL,NBC_aveAPR, by.x="Student.ID",by.y="UNIV_ROW_ID", all.y = TRUE)
+EWNBC_results <- data3 %>% 
+  group_by(Student.ID) %>% 
+  mutate(EWNum=row_number())
+
+write.csv(EWNBC_results,"EWNBC_results.csv")
+```
+
