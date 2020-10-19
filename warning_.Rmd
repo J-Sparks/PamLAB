@@ -96,6 +96,9 @@ write.csv(NEWWarningCombo,"WarningCombi_aveGPA.csv")
 EarlyWarning_CourseCombos.10.15.20 <- read.csv("~/WarningData/EarlyWarning_CourseCombos 10-15-20.csv", stringsAsFactors=TRUE)
 EarlyWarning.Results.All.10.15.20 <- read.csv("~/WarningData/EarlyWarning Results All 10-15-20.csv", stringsAsFactors=TRUE)
 V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17 <- read.csv("~/WarningData/V2_1 Early Warning Checkpoint 2 Full Data 10-17.csv", stringsAsFactors=TRUE)
+V2_checkpoint_inst <- V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17 %>% 
+  select(Student.ID, Creator.Email, Section.Name, Course.Number, Instructor )
+
 library(readxl)
 Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("~/Data_IR/Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx")
 
@@ -125,5 +128,36 @@ EWNBC_results <- data3 %>%
   mutate(EWNum=row_number())
 
 write.csv(EWNBC_results,"EWNBC_results.csv")
+
+EWNBC_results_checkPoint <- merge(EWNBC_results, V2_checkpoint_inst,by=c("Student.ID","Section.Name"), all.x = TRUE)
+EWNBC_results_checkPoint$AlertR1 <- as.character(EWNBC_results_checkPoint$AlertR1)
+EWNBC_results_checkPoint$AlertR1[is.na(EWNBC_results_checkPoint$AlertR1)] <- "NoEW"
+EWNBC_results_checkPoint <- EWNBC_results_checkPoint %>% 
+  mutate(EW_nonaveAPR = ifelse(AlertR1=="NoEW" & aveAPR =="aveAPR" ,"NoEW_aveAPR",
+                               ifelse(AlertR1=="NoEW" & aveAPR =="Non-aveAPR","NoEW_NoaveAPR",
+                                      ifelse(AlertR1 != "NoEW" & aveAPR =="Non-aveAPR"  , "EW_NoaveAPR",
+                                             ifelse(AlertR1 != "NoEW" & aveAPR =="aveAPR", "EW_aveAPR","Otehrs")))))
+glimpse(EWNBC_results_checkPoint)
+ xtabs(~EWNBC_results_checkPoint$EW_nonaveAPR + EWNBC_results_checkPoint$APPLICANT_TIER+EWNBC_results_checkPoint$EWNum)
+
+write.csv(EWNBC_results_checkPoint,"EWNBC_results_checkPoint.csv")
+
+EWNBC_results_checkPointEW <- EWNBC_results_checkPoint %>% 
+  filter(AlertR1 != "NoEW")
+length(unique(EWNBC_results_checkPointEW$Course.Number.x))
+
+length(unique(EWNBC_results$Student.ID))
+length(unique(V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17$Student.ID)) #650
+length(unique(EWNBC_results_checkPoint$Student.ID)) #650
+length(unique(EarlyWarning.Results.All.10.15.20$Course.Number)) #173
+length(unique(EarlyWarning.Results.All.10.15.20$Section.Name)) #352
+
+EWTIER <- EWNBC_results %>% 
+  group_by(APPLICANT_TIER) %>% 
+  summarise(nFTIC=n());EWTIER
+
+EWCRS <- EarlyWarning.Results.All.10.15.20 %>% 
+  group_by(Course.Number) %>% 
+  summarise(nFTIC=n());EWCRS
 ```
 
