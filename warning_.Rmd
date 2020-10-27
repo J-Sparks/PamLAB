@@ -74,7 +74,9 @@ xtabs(~MAC1147PoorGrade$Major)
 Prediction_FTIC2020_UWF <- read.csv("~/WarningData/Prediction_FTIC2020_UWF.csv", stringsAsFactors=TRUE)
 EarlyWarning_CourseCombos.10.15.20 <- read.csv("~/WarningData/EarlyWarning_CourseCombos 10-15-20.csv", stringsAsFactors=TRUE)
 library(readxl)
-EarlyWarning_Results_All_10_15_20 <- read_excel("C:/Users/jsparks3/Downloads/EarlyWarning Results All 10-15-20.xlsx")
+EarlyWarning_Results_All_10_15_20 <- read_excel("C:/Users/jsparks3/Downloads/EarlyWarning Results All 10-15-20.xlsx", sheet = 1)
+
+
 EWR <- EarlyWarning_Results_All_10_15_20
 V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17 <- read.csv("~/WarningData/V2_1 Early Warning Checkpoint 2 Full Data 10-17.csv", stringsAsFactors=TRUE)
 EWR_INSTR <- V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17
@@ -150,7 +152,7 @@ length(unique(EWNBC_results$Student.ID))
 length(unique(V2_1.Early.Warning.Checkpoint.2.Full.Data.10.17$Student.ID)) #650
 length(unique(EWNBC_results_checkPoint$Student.ID)) #650
 length(unique(EarlyWarning.Results.All.10.15.20$Course.Number)) #173
-length(unique(EarlyWarning.Results.All.10.15.20$Section.Name)) #352
+length(unique(EarlyWarning_CourseCombos.10.15.20$UNIV_ROW_ID)) #782
 
 EWTIER <- EWNBC_results %>% 
   group_by(APPLICANT_TIER) %>% 
@@ -159,5 +161,159 @@ EWTIER <- EWNBC_results %>%
 EWCRS <- EarlyWarning.Results.All.10.15.20 %>% 
   group_by(Course.Number) %>% 
   summarise(nFTIC=n());EWCRS
+
+```
+```{r}
+length(unique(EarlyWarning_CourseCombos.10.15.20$UNIV_ROW_ID)) #782
+glimpse(EarlyWarning_CourseCombos.10.15.20)
+EWcombo <- EarlyWarning_CourseCombos.10.15.20[, 1:13];glimpse(EWcombo)
+EWcombo1 <- EWcombo %>% 
+  group_by(UNIV_ROW_ID) %>% 
+  filter(Pass_Rate== min(Pass_Rate)) %>% 
+  filter(Number_Courses == max(Number_Courses));EWcombo1 #964
+
+EWcombo2 <- EWcombo1 %>% 
+  dplyr::distinct(UNIV_ROW_ID,Course_Combo,Pass_Rate,Number_Courses, .keep_all=TRUE) %>% 
+   filter(Pass_Rate == min(Pass_Rate)) %>% 
+   group_by(UNIV_ROW_ID) %>% 
+  mutate(Number_combo=row_number());head(EWcombo2, 40)
+unique(EWcombo2$Number_combo) #[1] 1 2 3 4
+
+```
+
+```{r}
+ EW_aveAPR_FTIC2020_lists_all <- read.csv("G:/My Drive/EW/EW_aveAPR_FTIC2020_lists_all.csv", stringsAsFactors=TRUE)
+ EW_NonAPR_FTIC2020_lists <- read.csv("G:/My Drive/EW/EW_NonAPR_FTIC2020_lists.csv", stringsAsFactors=TRUE)
+ 
+ EWaveAPR_id <- EW_NonAPR_FTIC2020_lists %>% 
+   select(Student.ID)
+ 
+ EWAVEAPR_FTIC2020_list <- merge(EWaveAPR_id, EW_aveAPR_FTIC2020_lists_all, by= "Student.ID", all.x=TRUE)
+ EWAVEAPR_FTIC2020_list_1 <- EWAVEAPR_FTIC2020_list %>% 
+   group_by(Student.ID) %>% 
+   arrange(EWNum, .groups="drop")
+ EWAVEAPR_FTIC2020_list_2 <- EWAVEAPR_FTIC2020_list_1 %>% 
+   distinct(Student.ID,Section.Name, Course.Number.x, .keep_all = TRUE );EWAVEAPR_FTIC2020_list_2
+ write.csv(EWAVEAPR_FTIC2020_list_2,"EWAVEAPR_FTIC2020_list_2.csv")
+ length(unique(EWAVEAPR_FTIC2020_list_2$Student.ID)) #55
+
+ 
+```
+```{r}
+# by sections
+EW_all <- read.csv("G:/My Drive/EW/EW_aveAPR_FTIC2020_lists_all.csv", stringsAsFactors=TRUE)
+bysection <- EW_all %>% 
+  group_by(Course.Number.x) %>% 
+  summarise(nFTIC=n()) %>% 
+  ungroup() %>% 
+  arrange(-nFTIC);bysection
+
+MAC1147ENC1101EW <- EW_all %>% 
+  filter(Course.Number.x == "MAC1147" | Course.Number.x == "ENC1101" ) %>% 
+  group_by(Course.Number.x,Section.Name) %>% 
+  summarise(cFTIC=n()) %>%
+  ungroup() %>% 
+  arrange(-cFTIC);MAC1147ENC1101EW
+
+MAC1147 <- EW_all %>% 
+  filter(Course.Number.x == "MAC1147" ) %>% 
+  group_by(Course.Number.x,Section.Name) %>% 
+  summarise(cFTIC=n()) %>%
+  ungroup() %>% 
+  arrange(Section.Name);MAC1147
+
+# create dataset for EW Rate
+MAC1147$Seats_Numer <- c(20, 18,21,19,21,15,21,21,21,21,22,22,18,10,23,23)
+MAC1147$Lab_Day <- c("FRI","FRI","FRI","FRI","FRI","FRI","FRI","FRI","FRI","FRI","FRI","THU","FRI","FRI","THU","THU")
+MAC1147$Lab_Star_Time <- c("8am","10am","12:30pm","2:30pm","8am","10am","12:30pm","3pm","8am","10am","12:30pm","2:30pm","8am","2pm","11:30am","1:45pm")
+MAC1147$AMPM <- c("AM","AM","PM","PM","AM","AM","PM","PM","AM","AM","PM","PM","AM","PM","AM","PM")
+MAC1147$Rate_EW <- MAC1147$cFTIC/MAC1147$Seats_Numer
+MAC1147$Rate_EW <- round(MAC1147$Rate_EW, digits = 4);MAC1147
+write.csv(MAC1147,"Student_course.csv")
+write.csv(MAC1147,"mytext.txt")
+write.table(MAC1147,"mytable.csv")
+
+rate_byDayMAC1147 <- MAC1147 %>%
+  group_by(Lab_Day) %>% 
+  summarise(meanRate=mean(Rate_EW));rate_byDayMAC1147
+
+rate_bytimeMAC1147 <- MAC1147 %>%
+  group_by(Lab_Star_Time) %>% 
+  summarise(meanRate=mean(Rate_EW));rate_bytimeMAC1147
+
+```
+```{r}
+sum(MAC1147$Seats_Numer)
+```
+
+
+```{r}
+library(ggplot2)
+plot(MAC1147$Seats_Numer, MAC1147$Rate_EW)
+boxplot.stats(MAC1147$Rate_EW)
+m1 <- lm(Rate_EW~Seats_Numer+Lab_Day+Lab_Star_Time, data = MAC1147);summary(m1)
+```
+```{r}
+colnames(EW_all)
+Major <- EW_all %>% 
+ filter( AlertR1 != "NoEW" ) %>% 
+  group_by(Course.Number.x, ENTRY_PROGRAM) %>% 
+  summarise(cFTIC=n()) %>%
+  ungroup() %>% 
+  arrange(-cFTIC);Major
+```
+
+
+
+### combined with CSE data
+```{r}
+#EW_aveAPR_FTIC2020_lists_all
+#V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier 
+library(readxl)
+NBC_By_Tier_results_UWF_2020_ <- read_excel("~/Data_IR/NBC_By_Tier_results_UWF(2020).xlsx", 
+    sheet = "NBC_By_Tier_resultsUWF", col_types = c("skip", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "text", "text", "numeric", 
+        "text", "text", "text", "text", "text", 
+        "text", "text", "text", "text", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "text", "numeric", "text", "numeric", 
+        "text", "numeric", "numeric", "text"))
+EW_aveAPR_FTIC2020_lists_all <- read.csv("G:/My Drive/EW/EW_aveAPR_FTIC2020_lists_all.csv")
+data1 <- EW_aveAPR_FTIC2020_lists_all %>% 
+  select(1:6,18:23)
+
+data2 <- V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier <- read.csv("~/Data_IR/V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier.csv")%>% 
+  filter(COHORT_YEAR== 20202021) # for all informations
+
+data3 <- NBC_By_Tier_results_UWF_2020_ %>% 
+    filter(COHORT_YEAR==20202021) %>%  # only for predition aveAPR
+  select(UNIV_ROW_ID, 'AboveGPA'= "Pr(AboveGPA)","BelowGPA"="Pr(BelowGPA)")
+
+merge1 <- merge(data2, data3, by="UNIV_ROW_ID", all.x=TRUE)  
+merge2 <- merge(data2, data1, by.x="UNIV_ROW_ID", by.y="Student.ID", all = TRUE)
+merge2[which(merge2$EWNum==1 & merge2$AlertR1=="NoEW")] <- 0
+my_all_EW_ENR_info <- merge2
+
+MAC1147_allinfor <- my_all_EW_ENR_info %>% 
+  filter(Section.Name== 80922 | Section.Name == 80923)
+library(stringr)
+MAC1147_enrolled_all <- my_all_EW_ENR_info %>% 
+  filter(str_detect(CRSNAME1,"MAC1147") |str_detect(CRSNAME2,"MAC1147")|
+           str_detect(CRSNAME3,"MAC1147")|str_detect(CRSNAME4,"MAC1147")|
+           str_detect(CRSNAME5,"MAC1147")|str_detect(CRSNAME6,"MAC1147")|
+           str_detect(CRSNAME7,"MAC1147")|str_detect(CRSNAME8,"MAC1147")|
+           str_detect(CRSNAME9,"MAC1147"))
+
+```
+
+```{r}
+ FTIC_des <- my_all_EW_ENR_info %>%
+  mutate(EWind= ifelse(AlertR1=="NoEW","NoEW","YesEW")) %>%
+   #group_by(UNIV_ROW_ID) %>% 
+  #filter(EWNum==max(EWNum)) %>% 
+   #mutate(sumEWbyTier=sum(EWNum)) %>% 
+  group_by(APPLICANT_TIER, EWind, EWNum) %>% 
+   summarise(cFTIC=n());FTIC_des
 ```
 
