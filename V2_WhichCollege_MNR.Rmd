@@ -1,0 +1,704 @@
+---
+title: "R Change college, Department, and Program"
+output:
+  html_document:
+    df_print: paged
+---
+### import data
+```{r}
+
+setwd("C:/Users/jsparks3/Documents/Data_IR")
+library(dplyr)
+deg0 <- read.csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202001/STUDENT_DEGREE_SPRING20.csv")
+
+degspring2020 <- read.csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202001/STUDENT_DEGREE_SPRING20.csv") %>%
+  filter(Deg_DEMO_TIME_FRAME>=200805 ) %>% 
+  group_by(STU_ID) %>% filter(Deg_Desc=="Bachelor", .by_group=TRUE) %>% mutate(number_Bachelor=row_number(), endDay=rep("01")) %>% 
+   select(1:2,contains("college"),contains("Department"),contains("type"),contains("Semester"),contains("CIP"),contains("GPA"),contains("Major"),
+          Deg_TermDate,Deg_Desc,contains("Major"),number_Bachelor)
+
+library(stringr)
+library(tidyr)
+### FTIC filter with first term only
+enr<- read.csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202001/STU_ENROLLMENT_SPRING20.csv")
+enrspring2020 <- read.csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202001/STU_ENROLLMENT_SPRING20.csv") %>% 
+  filter(Stu_LoadIPEDSFTPT=="Full Time" & # full time
+             Stu_StudentTypeCode =="B" &
+           Stu_AdmissionRecentTypeCode=="B" & Stu_DEMO_TIME_FRAME >= 200805 ) %>% # data quality since 2008
+  group_by(STU_ID) %>% 
+  filter(str_detect(Stu_Term, c("Fall..."))) %>% 
+  separate(Stu_AdmissionTerm, into = c("Term","Cohort"),sep=" ") %>% 
+  select(1,Stu_TermDate,Cohort) %>% filter(Cohort >= 2008)
+  xtabs(~enrspring2020$Cohort )
+```
+
+
+```{r}
+  ### Merge all fall semesters information and create index that not include summer term
+FTIC_all_semesterFall <- merge(enrspring2020, enr, by="STU_ID", all.x = TRUE ) %>% 
+  #filter(Stu_AdmissionRecentTypeCode == "B") %>% 
+   filter(str_detect(.$Stu_Term , "Fall")) %>%  # No summer terms
+   group_by(STU_ID) %>%  arrange(Stu_DEMO_TIME_FRAME, .by_group=TRUE) %>% 
+  mutate(number_semester=row_number()) %>% 
+  select(1:5,contains("ethnicity"),contains("gender"),contains("county"),contains("Nation"),contains("college"),contains("Department"),contains("type"),contains("Semester"),contains("term"),contains("CIP"),contains("GPA"),
+         contains("Hour"),contains("Insti"),contains("Major"),Cohort,number_semester)
+
+
+FTIC_all_semesterFall$Term = rep("Fall") 
+
+FTIC_all_semesterSpring <- merge(enrspring2020, enr, by="STU_ID", all.x = TRUE ) %>% 
+  #filter(Stu_AdmissionRecentTypeCode == "B") %>% 
+   filter(str_detect(.$Stu_Term , "Spring")) %>%  # No summer terms
+   group_by(STU_ID) %>%  arrange(Stu_DEMO_TIME_FRAME, .by_group=TRUE) %>% 
+  mutate(number_semester=row_number()) %>% 
+  select(1:5,contains("ethnicity") ,contains("gender"),contains("county"),contains("Nation"), contains("college"),contains("Department"),contains("type"),contains("Semester"),contains("term"),contains("CIP"),contains("GPA"),
+         contains("Hour"),contains("Insti"),contains("Major"),Cohort,number_semester)
+    
+FTIC_all_semesterSpring$Term = rep("Spring") 
+
+
+FTIC_all_semesterSummer <- merge(enrspring2020, enr, by="STU_ID", all.x = TRUE ) %>% 
+  #filter(Stu_AdmissionRecentTypeCode == "B") %>% 
+   filter(str_detect(.$Stu_Term , "Summer")) %>%  # No summer terms
+   group_by(STU_ID) %>%  arrange(Stu_DEMO_TIME_FRAME, .by_group=TRUE) %>% 
+  mutate(number_semester=row_number()) %>% 
+  select(1:5,contains("ethnicity") ,contains("gender"),contains("county"), contains("Nation"),contains("college"),contains("Department"),contains("type"),contains("Semester"),contains("term"),contains("CIP"),contains("GPA"),
+         contains("Hour"),contains("Insti"),contains("Major"),Cohort,number_semester)
+    
+FTIC_all_semesterSummer$Term = rep("Summer") 
+
+FTIC_all_semester <- rbind(FTIC_all_semesterFall,FTIC_all_semesterSpring,FTIC_all_semesterSummer)
+
+```
+
+
+```{r} 
+
+FTIC_all_semester1  <- FTIC_all_semester %>%  group_by(STU_ID) %>%  arrange(Stu_DEMO_TIME_FRAME, .by_group=TRUE) %>% 
+  mutate(Total_number_semester=row_number())
+
+xtabs(~FTIC_all_semester1$Cohort+FTIC_all_semester1$Term)
+```
+```{r}
+xtabs(~FTIC_all_semester1$Cohort+FTIC_all_semester1$number_semester+FTIC_all_semester1$Term )
+```
+
+
+```{r}
+### get the bachelor degree information and merge with enr
+FTIC_all_semester_deg <- merge(FTIC_all_semester1, degspring2020, by="STU_ID", all.x = TRUE)
+
+  sub_B <- FTIC_all_semester_deg %>%  filter(Stu_StudentTypeCode=="B" )
+  xtabs(~sub_B$Cohort+sub_B$number_Bachelor)
+
+```
+
+
+```{r}
+FTIC_all_semester_deg$Stu_TermDate <- as.Date.character(FTIC_all_semester_deg$Stu_TermDate.x)
+FTIC_all_semester_deg$Deg_TermDate <- as.Date.character(FTIC_all_semester_deg$Deg_TermDate)
+
+# create col for data
+FTIC_all_semester_deg$Days <- as.character(round(FTIC_all_semester_deg$Deg_TermDate - as.Date(FTIC_all_semester_deg$Stu_TermDate)))
+
+FTIC_all_semester_deg$Months <- as.character(round(FTIC_all_semester_deg$Deg_TermDate - as.Date(FTIC_all_semester_deg$Stu_TermDate))/(365.25/12))
+
+FTIC_all_semester_deg$Years <- as.character(round(FTIC_all_semester_deg$Deg_TermDate - as.Date(FTIC_all_semester_deg$Stu_TermDate))/(365))
+FTIC_all_semester_deg$Ontime_gradu <- ifelse(FTIC_all_semester_deg$Years < 4.00, "Ontime","Overtime")
+
+FTIC_all_semester_deg$Semester <- as.character(round(FTIC_all_semester_deg$Deg_TermDate - as.Date(FTIC_all_semester_deg$Stu_TermDate))/(365/3))
+
+#merge with deg and start info
+FTIC_all_semester_deg_semester1 <- FTIC_all_semester_deg %>% group_by(STU_ID) %>% filter(number_semester==max(number_semester))
+
+xtabs(~FTIC_all_semester_deg_semester1$Cohort+FTIC_all_semester_deg_semester1$Ontime_gradu)
+```
+
+
+```{r}
+### changing variables from start and end  for changes
+FTIC_all_semester_deg_semester1 <- FTIC_all_semester_deg_semester1[!is.na(FTIC_all_semester_deg_semester1$Ontime_gradu), ] %>% 
+ mutate(ChangeCIP= ifelse(Stu_ProgramCIPCode==Deg_ProgramCIPCode, "No","Yes"), ChangeColl= ifelse(Stu_CollegeCode==Deg_CollegeCode, "No","Yes"),ChangeDeprt= ifelse(Stu_DepartmentCode==Deg_DepartmentCode, "No","Yes"))
+xtabs(~FTIC_all_semester_deg_semester1$Ontime_gradu)
+xtabs(~FTIC_all_semester_deg_semester1$Ontime_gradu+FTIC_all_semester_deg_semester1$ChangeColl)
+xtabs(~FTIC_all_semester_deg_semester1$Ontime_gradu+FTIC_all_semester_deg_semester1$ChangeDeprt)
+xtabs(~FTIC_all_semester_deg_semester1$Ontime_gradu+FTIC_all_semester_deg_semester1$ChangeCIP)
+xtabs(~FTIC_all_semester_deg_semester1$Cohort +FTIC_all_semester_deg_semester1$ChangeDeprt)
+```
+
+```{r}
+library(ggplot2)
+myCIPMAXsemester <- FTIC_all_semester_deg_semester1
+p_deg <- ggplot(data=myCIPMAXsemester)
+P_Time <- p_deg+ geom_bar(aes(x=number_semester, color=Cohort), size=1.2)+ facet_grid(Ontime_gradu~. ) + labs(title = "Number of Semesters by Cohort (included summer term)", subtitle = "source(PAM Lab 2020)")
+           
+P_Time
+
+
+```
+
+
+### each colleges and department
+```{r}
+library(tidyr)
+myCIPMAXsemester_N <- myCIPMAXsemester %>% group_by(Deg_College, ChangeColl, Ontime_gradu) %>% summarise(meanSemester=mean(number_semester), .groups="drop");myCIPMAXsemester_N
+
+
+
+```
+### changed departments
+```{r}
+myCIPMAXsemester_ND <- myCIPMAXsemester %>% group_by(Deg_Department, ChangeDeprt, Ontime_gradu) %>% summarise(meanSemester=mean(number_semester), .groups="drop");myCIPMAXsemester_ND
+
+```
+
+```{r}
+meanvalue <- myCIPMAXsemester %>% 
+  group_by( Deg_College,  Ontime_gradu) %>% 
+  summarise(meanSemester=mean(number_semester, na.rm = T), CountFTIC=n()); meanvalue
+```
+
+
+```{r}
+myCIPmaxminsemester_OntimePlot <- ggplot(myCIPMAXsemester[!is.na(myCIPMAXsemester$Ontime_gradu) & myCIPMAXsemester$Stu_TotalInstHours>=100,], aes(Stu_TotalInstHours, Stu_TotalUniversityHours, colour = Ontime_gradu)) + geom_point() +labs(title = "UWF Hours vs. University Hours by Degree Completion") 
+myCIPmaxminsemester_OntimePlot
+
+
+```
+
+
+```{r}
+p_ontime <- ggplot(data = myCIPMAXsemester_N[myCIPMAXsemester_N$Ontime_gradu=="Ontime",])
+p_ontime + geom_point(aes(x=Deg_College,y=meanSemester,color=ChangeColl),size=5)+labs(xlabs="College", ylabs="Average of Semester", title="Average Semester for Ontime degree FTIC", subtitle = "Source: PAM Lab 2020") +facet_grid(ChangeColl~.)
+
+p_overtime <- ggplot(data = myCIPMAXsemester_N[myCIPMAXsemester_N$Ontime_gradu=="Overtime",])
+p_overtime + geom_point(aes(x=Deg_College,y=meanSemester,color=ChangeColl),size=5)+labs(xlabs="College", ylabs="Average of Semester", title="Average Semester for Overtime degree FTIC", subtitle = "Source: PAM Lab 2020")+facet_grid(ChangeColl~.)
+```
+
+```{r}
+
+
+myCIPmaxminsemester_OntimePlot1 <- ggplot(myCIPMAXsemester[complete.cases(myCIPMAXsemester$Ontime_gradu),], aes(x=Stu_TotalInstHours)) + geom_histogram(aes(fill=ChangeColl)) +facet_grid(Ontime_gradu~.) +labs(title = "UWF Hours  by Degree Completion and Changed College") 
+myCIPmaxminsemester_OntimePlot1
+
+myCIPmaxminsemester_OntimePlot2 <- ggplot(myCIPMAXsemester[complete.cases(myCIPMAXsemester$Ontime_gradu),], aes(x=Stu_TotalInstHours)) + geom_histogram(aes(fill=ChangeDeprt)) +facet_grid(Ontime_gradu~.) +labs(title = "UWF Hours  by Degree Completion and Changed College") 
+myCIPmaxminsemester_OntimePlot2
+
+myCIPmaxminsemester_OntimePlot3 <- ggplot(myCIPMAXsemester[complete.cases(myCIPMAXsemester$Ontime_gradu),], aes(x=Stu_TotalInstHours)) + geom_histogram(aes(fill=ChangeCIP)) +facet_grid(Ontime_gradu~.) +labs(title = "UWF Hours  by Degree Completion and Changed College") 
+myCIPmaxminsemester_OntimePlot3
+
+
+```
+### no degree FTIC
+
+```{r}
+str(myCIPMAXsemester)
+myCIPMAXsemesterNodeg <- myCIPMAXsemester %>% group_by(STU_ID) %>% filter( number_semester==max(number_semester))
+which(is.na(FTIC_all_semester_deg$Ontime_gradu))
+```
+### Using Term index dataset
+### Noitce that GPA HS values are missing for updated 2018:2019 Cohort
+```{r}
+FTIC_Fall_semester2 <- FTIC_all_semester1 %>% filter(Term == "Fall") %>% select(1:3,contains("ethnicity") ,contains("gender"), contains("Nation"),number_semester,contains("College"),contains("county"), contains("department"),Stu_Department,contains("Major"),contains("HighSchool"),contains("Total"),Stu_TotalInstHours,Stu_GPAUndergraduateTerm,Stu_GPATermHours,Stu_CurrentTermLoad,Stu_GPASemester, contains("gradepoint")) %>% 
+  mutate(GPAT1= Stu_GPAGradePoints/Stu_GPATermHours) %>% mutate(diffGPAt1=round(GPAT1-Stu_GPAUndergraduateTerm, digits = 2))
+
+
+# fitler the first fall 
+FTIC_Fall_semester3 <- select(FTIC_Fall_semester2,-Total_number_semester) %>% filter(Cohort >= 2015 & number_semester == 1) ;glimpse(FTIC_Fall_semester3)
+```
+
+Merge with CRS data to combine the first term courses
+```{r}
+my_id_3from3 <- FTIC_Fall_semester3 %>%  select(1:3) %>% group_by(STU_ID)
+
+my_id_crs <- COURSE_STUDENT_INSTRUCTION_SPRING20 %>%  select(1,5,"Course_CrsCombined","Course_CrsGradeAwarded", contains("credit"))
+
+FTIC_frist_crs <- merge(my_id_3from3,my_id_crs, by.x=c("STU_ID", "Stu_TermDate.x"), by.y=c("STU_ID","Course_TermDate"), all.x = T)
+#check duplication
+library(tidyverse)
+FTIC_frist_crs_nodup <- FTIC_frist_crs %>% distinct(STU_ID,Stu_TermDate.x,Course_CrsCombined, Course_CrsGradeAwarded,  .keep_all = T)
+FTIC_frist_crs_keep <- FTIC_frist_crs_nodup %>% select(1:7) %>% group_by(STU_ID) %>% mutate(Number_Crs=row_number());FTIC_frist_crs_keep[1:10,]
+length(unique(FTIC_frist_crs_keep$Number_Crs)) # all first term courses
+
+# merge with orig data
+FTIC_Fall_semester_all_CRS <- merge(FTIC_Fall_semester3, FTIC_frist_crs_keep, by="STU_ID", all.y = T)# this is FTCI 2015-2019 with first term GPA and CRS info
+
+```
+This is GradePoint  in data set
+```{r}
+unique(FTIC_Fall_semester_all_CRS$Course_CrsGradeAwarded)
+# [1] "C"  "C-" "B"  "A"  "A-" "B+" "C+" "D"  "D+" "XX" "W"  "F"  "B-" "NF" "I*" "I"  "P"  "S" 
+
+FTIC_Fall_semester_all_CRS$GradePoints <- FTIC_Fall_semester_all_CRS$Course_CrsGradeAwarded
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="A", "GradePoints"] <- 4.0
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="A-", "GradePoints"] <- 3.70
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="B+", "GradePoints"] <- 3.30
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="B", "GradePoints"] <- 3.00
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="B-", "GradePoints"] <- 2.70
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="C", "GradePoints"] <- 2.00
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="C+", "GradePoints"] <- 2.30
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="C-", "GradePoints"] <- 1.70
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="D", "GradePoints"] <- 1.00
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="D+", "GradePoints"] <- 1.30
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="F", "GradePoints"] <- 0.00
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$GradePoints=="NF", "GradePoints"] <- 0.00
+attach(FTIC_Fall_semester_all_CRS)
+na_if(GradePoints,"P")
+na_if(GradePoints,"S")
+na_if(GradePoints,"XX")
+na_if(GradePoints,"W")
+na_if(GradePoints,"I*")
+na_if(GradePoints,"I")
+
+
+
+FTIC_Fall_semester_all_CRS[FTIC_Fall_semester_all_CRS$Course_CrsGradeAwarded=="D", 30:36]
+```
+
+
+
+
+
+
+
+
+
+
+
+plot for difference term1 and semester1
+
+```{r}
+
+qplot( data= FTIC_Fall_semester3, x=GPAT1 , y= Stu_GPAGradePoints)
+ggplot(FTIC_Fall_semester, aes(x =GPAT1   , y = Stu_GPAGradePoints , color = Stu_GPAGradePoints)) + 
+  geom_point(show.legend = T) +
+  labs(x = 'First Term GPA (GPAGT/GPATH)', y='Stu_GPAGradePoints',  title = "First Term GPA vs.Stu_GPAGradePoints", subtitle = "Missing HS GPA (red)",
+       color = 'Stu_GPAGradePoints') + 
+  scale_color_gradient(low = "green", high = "darkgreen",
+                       na.value = "red", guide = "legend") +
+  theme_minimal()+theme(legend.position="bottom")
+```
+Find mean sd for HS GPA and TERM1 GPA
+```{r}
+my_norm_variables <- FTIC_Fall_semester3[, 18:26]
+my_norm_variables[is.infinite(my_norm_variables$GPAT1),] <- 0
+my_norm_variables[is.na(my_norm_variables$GPAT1),] <- 0
+my_norm_variables[which(my_norm_variables$Stu_GPAHighSchool==0), "Stu_GPAHighSchool"] <- NA
+my_norm_variables[which(is.na(my_norm_variables$Stu_GPAHighSchool)), ] 
+
+summary(my_norm_variables)
+```
+GPA high school normalize
+```{r}
+GPAHS_normal <- my_norm_variables[!is.na(my_norm_variables$Stu_GPAHighSchool),"Stu_GPAHighSchool"] %>% 
+  filter(Stu_GPAHighSchool<= 4.0)
+normGPAHS_normal <- apply(GPAHS_normal, 2, function(x) (x-mean(x))/sd(x))
+normGPAHS_normal[1:20]
+range(normGPAHS_normal)
+```
+GPAT1 normalize
+```{r}
+GPAT1_normal <- my_norm_variables[!is.na(my_norm_variables$GPAT1),"GPAT1"]
+normGPAT1 <- apply(GPAT1_normal, 2, function(x) (x-mean(x))/sd(x))
+normGPAT1[1:20]
+range(normGPAT1)
+
+```
+
+
+
+```{r}
+mean_GPA_HS_FTIC <- FTIC_Fall_semester %>% group_by(Cohort) %>% summarise(meanGPaHS = mean(Stu_GPAHighSchool, na.rm = T), medianGPAHS=median(Stu_GPAHighSchool, na.rm = T), minGPAHS=min(Stu_GPAHighSchool,na.rm = T), maxGPAHS=max(Stu_GPAHighSchool, na.rm = T)); mean_GPA_HS_FTIC
+```
+
+```{r}
+library(Hmisc)
+Hmisc::describe(FTIC_Fall_semester)
+```
+
+```{r}
+ggplot(FTIC_Fall_semester, aes(x =Stu_GPASemester  , y = Stu_GPATermHours , color = Stu_GPAHighSchool)) + 
+  geom_point(show.legend = T) +
+  labs(x = 'First Term GPA', y='First Term Earned Hours',  title = "First Term GPA vs. Earned Credit Hours", subtitle = "Missing HS GPA (red)",
+       color = 'Stu_GPAHighSchool') + 
+  scale_color_gradient(low = "green", high = "darkgreen",
+                       na.value = "blue", guide = "legend") +
+  theme_minimal()+theme(legend.position="bottom") #+facet_grid(Stu_CountyCode~.)
+```
+### missing values using KNN
+```{r}
+sapply(FTIC_Fall_semester, function(x){sum(is.na(x))*100/length(x)}) # 21.34889 Stu_GPAHighSchool 
+```
+### replace GPA HS >= 4.01 as 4 and na to zero values to replace
+```{r}
+GPA_HS_max <- 4
+FTIC_Fall_semester$Stu_GPAHighSchool[FTIC_Fall_semester$Stu_GPAHighSchool >= 4.00] <- GPA_HS_max
+FTIC_Fall_semester$Stu_GPAHighSchool[FTIC_Fall_semester$Stu_GPAHighSchool <= 2.00] <- NA
+
+#FTIC_Fall_semester$Stu_GPAHighSchool[which(is.na(FTIC_Fall_semester$Stu_GPAHighSchool))] <- 0
+
+ggplot(FTIC_Fall_semester[FTIC_Fall_semester$Stu_TotalUniversityHours==0 & FTIC_Fall_semester$Stu_TotalInstHours==0 & FTIC_Fall_semester$Cohort<= 2017,], aes(x = Stu_GPAUndergraduateTerm , y = Stu_GPATermHours , color = Stu_GPAHighSchool)) + 
+  geom_point(show.legend = T) +
+  labs(x = 'First Term GPA', y='First Term Earned Hours',  title = "First Term GPA UWF vs. First Term Earned Credit ", subtitle = "Missing HS GPA (red)",
+       color = 'Stu_GPAHighSchool') + 
+  scale_color_gradient(low = "green", high = "blue",
+                       na.value = "gray", guide = "legend") +
+  theme_minimal()+theme(legend.position="bottom") #+facet_grid(Stu_CountyCode~.)
+```
+### replace GPA HS
+```{r}
+library(mice)
+library(VIM)
+imp_regression <- regressionImp(Stu_GPAHighSchool~Stu_GPAUndergraduateTerm+Stu_TotalUniversityHours, FTIC_Fall_semester)
+aggr(imp_regression, delimiter = "_imp")
+marginplot(kNN(log10(FTIC_Fall_semester[,c("Stu_GPAHighSchool","Stu_GPAUndergraduateTerm")])), delimiter = "_imp")
+set.seed(123)
+imputeHS <- mice(FTIC_Fall_semester[, c("Stu_GPAHighSchool","Stu_GPAUndergraduateTerm")])
+imputeHS$imp$Stu_GPAHighSchool
+apply(imputeHS$imp$Stu_GPAHighSchool, 2,function(x) mean(x)) 
+```
+### choose highest mean
+```{r}
+FTIC_Fall_semesterGPAHS <- complete(imputeHS, 5);colnames(FTIC_Fall_semesterGPAHS) <- c("NewGPAHS","NewGPAFirstTerm");FTIC_Fall_semesterGPAHS
+FTIC_Fall_semesterNew <- cbind(FTIC_Fall_semester,FTIC_Fall_semesterGPAHS);FTIC_Fall_semesterNew
+```
+```{r}
+ggplot(FTIC_Fall_semesterNew[FTIC_Fall_semesterNew$Stu_TotalUniversityHours==0 & FTIC_Fall_semesterNew$Stu_TotalInstHours==0 & FTIC_Fall_semesterNew$Cohort<= 2017,], aes(x = Stu_GPAUndergraduateTerm , y = NewGPAHS , color = NewGPAHS)) + 
+  geom_point(show.legend = T) +
+  labs(x = 'First Term GPA', y='New GPA High School',  title = "First Term GPA UWF vs. KNN GPA HS", subtitle = "Missing HS GPA (red)",
+       color = 'NewGPAHS') + 
+  scale_color_gradient(low = "green", high = "blue",
+                       na.value = "red", guide = "legend") +
+  theme_minimal()+theme(legend.position="bottom") 
+```
+```{r}
+library(caret)
+library(RANN)
+FTIC_Fall_semesterNew <- data.frame(FTIC_Fall_semesterNew)
+preGPAHS <- preProcess(FTIC_Fall_semesterNew %>% 
+                          dplyr::select(Stu_TotalUniversityHours, Stu_TotalInstHours, Stu_GPAUndergraduateTerm, Stu_GPAHighSchool),
+                            method = c("knnImpute"),
+                            k = 76,
+                            knnSummary = mean)
+impute_GPAHS_info <- predict(preGPAHS, FTIC_Fall_semesterNew, na.action = na.pass)
+procNames <- data.frame(col = names(preGPAHS$mean), mean = preGPAHS$mean, sd = preGPAHS$std)
+for(i in procNames$col){
+ impute_GPAHS_info[i] <- impute_GPAHS_info[i]*preGPAHS$std[i]+preGPAHS$mean[i] 
+}
+```
+### mean of HS GPA, imputed GSGPA, mean credit hours, withdrawn hours, sum withdrawn hours
+```{r}
+meanGPAHS <- impute_GPAHS_info %>% group_by(Cohort) %>% 
+  summarise(meanGPA=mean(Stu_GPAHighSchool), meanGPA1=mean(NewGPAHS), meanGPAT1=mean(Stu_GPAUndergraduateTerm), meanCRT1=mean(Stu_GPATermHours, na.rm = T),meanWRate=mean((Stu_GPATermHours/Stu_CurrentTermLoad), na.rm = T),meanSumWHours=mean(sum(Stu_CurrentTermLoad-Stu_GPATermHours),na.rm = T),CountF=n());meanGPAHS
+```
+
+```{r}
+
+gpahs <- boxplot(impute_GPAHS_info$Stu_GPAHighSchool)
+gpahs$stats
+
+```
+
+```{r}
+CSEdata[CSEdata$UNIV_ROW_ID==970577458,]
+```
+
+
+### ANOVA t find optimal value HS GPA for subgroups
+```{r}
+
+CSEdatascan <- CSEdatascan %>% mutate(aveGPAT1=ifelse(FIRST_FALL_GPA>=2.77,"Strong",ifelse(FIRST_FALL_GPA>=2.00,"Safe","Warning")))
+CSEdatascan <- CSEdatascan %>% mutate(aveGPAHS=ifelse(GPA_HIGHSCHOOL>=3.88,"Strong",ifelse(GPA_HIGHSCHOOL>=3.33,"Safe","Warning")))
+
+
+tieran <- aov(GPA_HIGHSCHOOL~APPLICANT_TIER, data =CSEdatascan )
+summary(tieran)
+mytukeytier <-TukeyHSD(tieran, "APPLICANT_TIER")
+mytukeytier
+
+CSEdatascan$APPLICANT_TIER <- factor(CSEdatascan$APPLICANT_TIER)
+tieran1 <- aov(FIRST_FALL_GPA~APPLICANT_TIER, data =CSEdatascan )
+summary(tieran1)
+mytukeytier1 <-TukeyHSD(tieran1, "APPLICANT_TIER")
+mytukeytier1
+
+CSEdatascan$aveGPAT1 <- factor(CSEdatascan$aveGPAT1)
+tieran2 <- aov(GPA_HIGHSCHOOL~aveGPAT1, data =CSEdatascan )
+summary(tieran2)
+mytukeytier2 <-TukeyHSD(tieran2, "aveGPAT1")
+mytukeytier2
+
+CSEdatascan$aveGPAT1 <- factor(CSEdatascan$aveGPAT1)
+tieran3 <- aov(FIRST_FALL_GPA~aveGPAT1 + aveGPAHS, data =CSEdatascan )
+summary(tieran3)
+mytukeytierGPAHS <-TukeyHSD(tieran3, "aveGPAHS")
+mytukeytierGPAT1 <- TukeyHSD(tieran3, "aveGPAT1")
+mytukeytierGPAHS
+mytukeytierGPAT1
+```
+
+
+### replace GPAHS>=4.01 as 4.00
+```{r}
+CSEdatascan <- CSEdata
+CSEdatascan[which(is.na(CSEdatascan$FIRST_FALL_GPA)),] <- 0
+CSEdatascan[which(is.na(CSEdatascan$GPA_ENTERING_SECOND_FALL)),] <- 0
+CSEdatascan$GPA_HIGHSCHOOL[CSEdatascan$GPA_HIGHSCHOOL >=  4.01] <- 4
+
+
+CSEdatascan1 <- CSEdatascan %>% group_by(APPLICANT_TIER,COHORT_YEAR) %>% 
+  summarise(meanGPAHS=mean(GPA_HIGHSCHOOL, na.rm = T), meanGPAY1=mean(GPA_ENTERING_SECOND_FALL), meanGPAT1=mean(FIRST_FALL_GPA), CountF=n());CSEdatascan1
+gpahs1 <- boxplot(CSEdatascan$GPA_HIGHSCHOOL)
+gpahs1$stats
+
+```
+### ANOVA for HS GPA by TIer
+```{r}
+CSEdatascan$APPLICANT_TIER <- factor(CSEdatascan$APPLICANT_TIER)
+CSEdatascan <- CSEdatascan %>% mutate(aveGPAT1=ifelse(FIRST_FALL_GPA>=2.77,"Strong",ifelse(FIRST_FALL_GPA>=2.00,"Safe","Warning")))
+CSEdatascan <- CSEdatascan %>% mutate(aveGPAHS=ifelse(GPA_HIGHSCHOOL>=3.88,"Strong",ifelse(GPA_HIGHSCHOOL>=3.33,"Safe","Warning")))
+
+
+tieran <- aov(GPA_HIGHSCHOOL~APPLICANT_TIER, data =CSEdatascan )
+summary(tieran)
+mytukeytier <-TukeyHSD(tieran, "APPLICANT_TIER")
+mytukeytier
+
+CSEdatascan$APPLICANT_TIER <- factor(CSEdatascan$APPLICANT_TIER)
+tieran1 <- aov(FIRST_FALL_GPA~APPLICANT_TIER, data =CSEdatascan )
+summary(tieran1)
+mytukeytier1 <-TukeyHSD(tieran1, "APPLICANT_TIER")
+mytukeytier1
+
+CSEdatascan$aveGPAT1 <- factor(CSEdatascan$aveGPAT1)
+tieran2 <- aov(GPA_HIGHSCHOOL~aveGPAT1, data =CSEdatascan )
+summary(tieran2)
+mytukeytier2 <-TukeyHSD(tieran2, "aveGPAT1")
+mytukeytier2
+
+CSEdatascan$aveGPAT1 <- factor(CSEdatascan$aveGPAT1)
+tieran3 <- aov(FIRST_FALL_GPA~aveGPAT1 + aveGPAHS, data =CSEdatascan )
+summary(tieran3)
+mytukeytierGPAHS <-TukeyHSD(tieran3, "aveGPAHS")
+mytukeytierGPAT1 <- TukeyHSD(tieran3, "aveGPAT1")
+mytukeytierGPAHS
+mytukeytierGPAT1
+
+
+```
+
+
+
+
+### CSE data
+
+```{r}
+CSEdata <- read.csv("~/Data_IR/upCSEupto2020.csv")# %>% filter(COHORT_YEAR<=20192020)
+unique(CSEdata$COHORT_YEAR)
+CSEdata[which(CSEdata$ACT_PROPORTION==0),"ACT_PROPORTION"] <- NA
+CSEdata[which(CSEdata$SAT_PROPORTION==0),"SAT_PROPORTION"] <- NA
+CSEdata[which(CSEdata$GPA_HIGHSCHOOL==0),"GPA_HIGHSCHOOL"] <- NA
+CSEdata[which(CSEdata$AP_CREDITS==0),"AP_CREDITS"] <- NA
+CSEdata[which(CSEdata$HOURS_BROUGHT_TO_UNIVERSITY==0),"HOURS_BROUGHT_TO_UNIVERSITY"] <- NA
+
+
+## GPA by cohort
+meanGPAHSFTIC <- CSEdata %>% group_by(COHORT_YEAR) %>% 
+  summarise(meanGPAHS=mean(GPA_HIGHSCHOOL, na.rm = T),meanPH=mean(HOURS_BROUGHT_TO_UNIVERSITY,na.rm = T),meanAP=mean(AP_CREDITS , na.rm = T),  CountF=n());meanGPAHSFTIC
+
+### GPA by TIER
+meanGPAHS1 <- CSEdata %>% group_by(COHORT_YEAR,APPLICANT_TIER) %>% 
+  summarise(meanGPAHS=mean(GPA_HIGHSCHOOL, na.rm = T), meanACT=mean(ACT_PROPORTION, na.rm = T), meanSAT=mean(SAT_PROPORTION, na.rm = T), CountF=n());meanGPAHS1
+gpahs1 <- boxplot(CSEdata$GPA_HIGHSCHOOL)
+gpahs1$stats
+
+## HS name
+meanGPAHSNAME <- CSEdata %>% group_by(HIGH_SCHOOL_NAME) %>% 
+  summarise(meanGPAHS=mean(GPA_HIGHSCHOOL, na.rm = T),meanGPAT1=mean(FIRST_FALL_GPA, na.rm=T),meanPH=mean(HOURS_BROUGHT_TO_UNIVERSITY,na.rm = T),meanAP=mean(AP_CREDITS , na.rm = T),  CountF=n())
+meanGPAHSNAME1 <- meanGPAHSNAME %>%  arrange(-CountF);meanGPAHSNAME1
+
+```
+```{r}
+lmHS <- lm(GPA_HIGHSCHOOL~ACT_PROPORTION, data=CSEdata)
+summary(lmHS)
+CSEdata$APPLICANT_TIER <- as.factor(CSEdata$APPLICANT_TIER)
+pHS <- ggplot(data=CSEdata, aes(x=SAT_PROPORTION,y=ACT_PROPORTION)) +geom_point(col="blue")
+pHS + geom_smooth(col="red")
+```
+```{r}
+ggplot(CSEdata[CSEdata$HOURS_BROUGHT_TO_UNIVERSITY <= 45 & CSEdata$COHORT_YEAR <= 20192020,], aes(x = GPA_HIGHSCHOOL , y = FIRST_FALL_GPA , color = ACT_PROPORTION) )+ 
+  geom_point(show.legend = T) +
+  labs(x = 'GAP HS', y='GPA Term1',  title = "Preparation vs. Persistence ", subtitle = "Missing value (yellow)",
+       color = 'ACT_PROPORTION') + geom_smooth(col="red")+
+  scale_color_gradient(low = "green", high = "blue",
+                       na.value = "yellow", guide = "legend") +
+  theme_minimal()+theme(legend.position="bottom") 
+```
+
+
+
+### geting Tier and HS GPA
+```{r}
+CSEdata <- read.csv("~/Data_IR/CSEdata.csv") %>% filter(COHORT_YEAR<=20192020)
+CSEdata$COHORT_YEAR1 <- stringr::str_extract( CSEdata$COHORT_YEAR, "^.{4}")
+
+## merge with cse and enr data set
+FTIC_Fall_CSEinfo <- merge(FTIC_Fall_semester,CSEdata, by.x = c("Cohort","Stu_Ethnicity","Stu_Gender","Stu_NationCode","Stu_County","Stu_Department","Stu_TotalUniversityHours"),
+                           by.y = c("COHORT_YEAR1","ETHNICITY","GENDER","NATION_GROUP","COUNTY","ENTRY_DEPARTMENT","HOURS_BROUGHT_TO_UNIVERSITY")) 
+
+FTIC_ALL_semester_CSE_info <- merge(FTIC_Fall_CSEinfo, FTIC_Fall_semester) # only half of them captured 2636/5827
+```
+
+
+### Coding for factors
+```{r}
+library(dplyr)
+recodingdemographicFACTORS <- MASTER_CRSCSE_allcourse_tier %>% 
+  #filter(ENTRY_COLLEGE=="CASSH" | ENTRY_COLLEGE=="HMCSE"|ENTRY_COLLEGE=="UKCOH") %>% 
+  mutate(TIER_THREE = ifelse(APPLICANT_TIER>=4,3,ifelse(APPLICANT_TIER==3,2,1))) %>% 
+  mutate(ETHNICITY_recode1 = ifelse(ETHNICITY=="White","White",ifelse(ETHNICITY=="African American",              "AA", ifelse(ETHNICITY=="Asian","Asian", ifelse(ETHNICITY=="Hispanic","HSP",                     ifelse(ETHNICITY=="Two or More","TM","OTHERS")))))) %>% 
+  mutate(ETHNICITY_recode2 = ifelse(ETHNICITY=="White","White","Non_White")) %>% 
+  mutate(ETHNICITY_recode3 = ifelse(ETHNICITY=="White","White",ifelse(ETHNICITY=="African American"|
+         ETHNICITY=="Hispanic","AAH","OTHERS"))) %>% 
+  filter(str_detect(CRSNAME1, "MAC") | str_detect(CRSNAME2,"MAC")|str_detect(CRSNAME3,"MAC")|str_detect(CRSNAME4,"MAC")|str_detect(CRSNAME5,"MAC")|str_detect(CRSNAME6,"MAC")) # from 3225,3216 so choose CRSNAME6
+
+
+
+
+do.call(rbind,lapply(recodingdemographicFACTORS[29],tblFun))
+
+Majorrecoding <- recodingdemographicFACTORS %>% 
+  mutate(ENTRY_DEPARTMENT.recode1=ifelse(ENTRY_COLLEGE=="HMCSE"&ENTRY_DEPARTMENT=="Biology","Biology","Others"))
+unique(Majorrecoding$ENTRY_DEPARTMENT.recode1)
+```
+
+```{r}
+qplot(data = recodingdemographicFACTORS, x=recodingdemographicFACTORS$GPA_HIGHSCHOOL, y= recodingdemographicFACTORS$FIRST_FALL_BRIGHT_FUTURES_AMOUNT, color=recodingdemographicFACTORS$TIER_THREE, facets = APR ~ETHNICITY_recode1)
+
+qplot(data = recodingdemographicFACTORS,   x=recodingdemographicFACTORS$GPA_HIGHSCHOOL, y= recodingdemographicFACTORS$FIRST_FALL_PELL_AMOUNT, color=APR, facets = GENDER ~ ENTRY_COLLEGE)
+
+qplot(data = recodingdemographicFACTORS, x=recodingdemographicFACTORS$TIER_THREE, y= recodingdemographicFACTORS$FIRST_FALL_BRIGHT_FUTURES_AMOUNT, color=recodingdemographicFACTORS$ETHNICITY_recode2, facets = APR ~ETHNICITY_recode2)
+
+qplot(data = recodingdemographicFACTORS,   x=FIRST_FALL_GPA, y= FIRST_FALL_BRIGHT_FUTURES_AMOUNT, color=ENTRY_COLLEGE)
+
+```
+```{r}
+glimpse(recodingdemographicFACTORS)
+```
+
+# manage the data for three college
+```{r}
+  whichcollege <- recodingdemographicFACTORS %>% 
+  filter(COHORT_YEAR < 20202021) %>% 
+  filter(COUNTY_GROUP=="Tri-County") %>% 
+  select(CRSNAME1, HOURS_BROUGHT_TO_UNIVERSITY,AP_CREDITS,FIRST_FALL_NEED_BASED_LOANS_AMOUNT,GENDER,COUNTY,GPA_HIGHSCHOOL,ETHNICITY_recode3,FIRST_FALL_GPA,ENTRY_COLLEGE) %>% 
+  na.omit()
+
+with(whichcollege, table(ENTRY_COLLEGE, COUNTY))
+with(whichcollege, table(ENTRY_COLLEGE, ETHNICITY_recode3))
+with(whichcollege, do.call(rbind, tapply(GPA_HIGHSCHOOL, COUNTY, function(x) c(M=mean(x), SD=sd(x)))))
+with(whichcollege, do.call(rbind, tapply(FIRST_FALL_GPA, COUNTY, function(x) c(M=mean(x), SD=sd(x)))))
+glimpse(whichcollege)
+
+
+
+```
+```{r}
+library(foreign)
+library(nnet)
+library(ggplot2)
+library(reshape2)
+library(caret)
+# the outcome should be the second year college
+whichcollege$ENTRY_COLLEGE <- factor(whichcollege$ENTRY_COLLEGE)
+whichcollege$ENTRY_COLLEGE_out <- relevel(whichcollege$ENTRY_COLLEGE, ref="UKCOH")
+whichcollege1 <- whichcollege[,-10]
+set.seed(123)
+model_first <- multinom(ENTRY_COLLEGE_out~., data = whichcollege1)
+summary(model_first)
+z <- summary(model_first)$coefficients/summary(model_first)$standard.errors
+z
+
+```
+```{r}
+# 2-tailed z test
+p <- (1 - pnorm(abs(z), 0, 1)) * 2
+p
+```
+
+
+```{r}
+## extract the coefficients from the model and exponentiate
+exp(coef(model_first))
+```
+```{r}
+confMatRank <- table(predict(model_first), whichcollege$ENTRY_COLLEGE)
+confMatRank
+sum(diag(confMatRank)/sum(confMatRank))
+1-sum(diag(confMatRank)/sum(confMatRank)) 
+
+p <- predict(model_first, whichcollege)
+pred <- predict(model_first, whichcollege[c(1:10),], type="prob")
+round(pred, digits = 5)
+
+n <- table(whichcollege$ENTRY_COLLEGE)
+n
+n/sum(n)
+
+p <- predict(model_first, whichcollege)
+tab <- table(p, whichcollege$ENTRY_COLLEGE)
+tab/colSums(tab)
+```
+```{r}
+head(p <- fitted(model_first),10)
+head(whichcollege[,10],10)
+```
+### multinomial naive bayes classification
+```{r}
+
+  whichcollege <- recodingdemographicFACTORS %>% 
+    filter(COHORT_YEAR < 20202021) %>% 
+  filter(COUNTY_GROUP=="Tri-County") %>% 
+  select(CRSNAME1,CRSNAME2,CRSNAME3,CRSNAME1,CRSNAME4,
+         CRSgrade1,CRSgrade2,CRSgrade3,CRSgrade4,
+         ENTRY_COLLEGE) %>% 
+  na.omit()
+whichcollege$CRSNAME1 <- factor(whichcollege$CRSNAME1)
+whichcollege$CRSNAME2 <- factor(whichcollege$CRSNAME2)
+whichcollege$CRSNAME3 <- factor(whichcollege$CRSNAME3)
+whichcollege$CRSNAME4 <- factor(whichcollege$CRSNAME4)
+whichcollege$CRSgrade1 <- factor(whichcollege$CRSgrade1)
+whichcollege$CRSgrade2 <- factor(whichcollege$CRSgrade2)
+whichcollege$CRSgrade3 <- factor(whichcollege$CRSgrade3)
+whichcollege$CRSgrade4 <- factor(whichcollege$CRSgrade4)
+#whichcollege$COUNTY <- factor(whichcollege$COUNTY)
+#whichcollege$ETHNICITY_recode3 <- factor(whichcollege$ETHNICITY_recode3)
+whichcollege$ENTRY_COLLEGE <- factor(whichcollege$ENTRY_COLLEGE)
+apply(whichcollege, 2, get.missing.prop)
+whichcollege <- whichcollege[-33,]
+glimpse(whichcollege)
+```
+### Data partition and modeling
+```{r}
+TrainingIndex <- createDataPartition(whichcollege$ENTRY_COLLEGE, p=0.7, list=FALSE)
+whichcollegeTraingSet <-  whichcollege[TrainingIndex, ]
+whichcollegeTestingSet <- whichcollege[-TrainingIndex, ]
+table(whichcollegeTraingSet$ENTRY_COLLEGE) %>% prop.table()
+table(whichcollegeTestingSet$ENTRY_COLLEGE) %>% prop.table()
+library(naivebayes)
+model_naive <- naive_bayes(ENTRY_COLLEGE~., data=whichcollegeTraingSet)
+confusionMatrix(predict(model_naive), whichcollegeTraingSet$ENTRY_COLLEGE)
+p <- round(predict(model_naive, whichcollegeTraingSet, type="prob"), digits = 5)
+model_naivet <- naive_bayes(ENTRY_COLLEGE~., data=whichcollegeTestingSet)
+confusionMatrix(predict(model_naivet), whichcollegeTestingSet$ENTRY_COLLEGE)
+pt <- round(predict(model_naivet, whichcollegeTestingSet, type="prob"), digit=5)
+whichcollege_p <- cbind(whichcollegeTraingSet,p)
+whichcollege_pt <- cbind(whichcollegeTestingSet,pt)
+whichcollege_results <- rbind(whichcollege_p,whichcollege_pt)
+write.csv(whichcollege_results,"V1_whichcollege_results.csv")
+
+#export the resutls
+
+
+```
+
