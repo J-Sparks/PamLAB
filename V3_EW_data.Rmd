@@ -1,0 +1,585 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an early warning data check point 2 and 3
+From CP 2 risk 150 cases t0 CP 3 126 cases DataShaping
+
+```{r}
+setwd("~/EWUWF")
+library(readxl)
+Checkpoint3 <- read_excel("~/EWUWF/Checkpoint3 Modified 11-5-20.xlsx", 
+    skip = 1) 
+Checkpoint3[Checkpoint3$Student_ID==970577458,]
+names(Checkpoint3) <- gsub(" ", "_", names(Checkpoint3))
+length(unique(Checkpoint3$Student_ID)) #420
+
+
+
+library(readxl)
+Checkpoint2 <- read_excel("~/EWUWF/V1_1 Early Warning Checkpoint 2 Full Data 10-17.xlsx", 
+    skip = 1)   %>% select(-"Student Alternate ID",-"Assigned Staff",-"Creator",-"Creator Email",
+                                         -"Instructor" )
+names(Checkpoint2) <- gsub(" ", "_", names(Checkpoint2))
+Checkpoint2[Checkpoint2$Student_ID==970577458,]
+colnames(Checkpoint3)
+colnames(Checkpoint2)
+
+
+library(readxl) #970532198 is missing tier so not in the prediction dataset
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("G:/My Drive/EW/V2_Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx", 
+    sheet = "About 82 FT2020 (all)", skip = 0) 
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF$CP2_risk <- rep("Yes") # marked for risky cp2 160 cases
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF_1 <- V2_Prediction_NBC_By_Tier_FTIC2020_UWF %>% select(Student.ID,CP2_risk)
+length(unique(V2_Prediction_NBC_By_Tier_FTIC2020_UWF_1$Student.ID)) #55FTIC/150cases
+
+# mark for CP2 risk (named 82)
+CP2_marked_risk <- V2_Prediction_NBC_By_Tier_FTIC2020_UWF_1
+CP2_marked_risk <- CP2_marked_risk[!duplicated(CP2_marked_risk$Student.ID),] ##55
+marekd_CP2_risk <- select(CP2_marked_risk, "Student.ID") %>% mutate(Flagged_ind = rep("marked_CP_risk_82"))
+
+what_82_at_CP3 <- merge(CP2_marked_risk, Checkpoint3, by.x="Student.ID", by.y="Student_ID", all.x = T)
+what_82_at_CP3_id <- what_82_at_CP3[!duplicated(what_82_at_CP3$Student.ID),]
+what_82_at_CP3_id <-what_82_at_CP3_id[!is.na(what_82_at_CP3_id$Student_Name),] #48 at cp3 out of 55 from cp2
+what_82_at_CP3_id_risk <- select(what_82_at_CP3_id,"Student.ID") %>% mutate(Flagged_ind=rep("marked_82_CP2_CP3"))
+
+newlist <- read.csv("~/EWUWF/newlist.txt", header=FALSE)
+names(newlist) <- c("Student.ID","V2")
+newlist_id <- select(newlist, 1)
+marekd_newlist_id <- select(newlist, 1)  %>% mutate(Flagged_ind=rep("marked_from_summary"))
+
+
+V1_Checkpoint3_78 <- V1_Checkpoint3 %>% select(Student_ID) %>%  mutate(Flagged_ind = rep("marekd_negative_78_CP3_but_CP2"))
+marked_V1_Checkpoint3_78_rest <-as.data.frame(setdiff(V1_Checkpoint3_78$Student_ID, marked_all_risk$Student.ID))# returen only unique in data x
+names(marked_V1_Checkpoint3_78_rest) <- c("Student.ID")
+  marked_V1_Checkpoint3_78_rest$Flagged_ind <- rep("marekd_negative_78_CP3_but_CP2")    
+V1_Checkpoint3_78_id <- V1_Checkpoint3_78[!duplicated(V1_Checkpoint3_78$Student_ID),]
+marked_risk_from_negative <- V1_Checkpoint3_78_id
+length(unique(marked_risk_from_negative$Student_ID))#61
+
+
+# merge all groups in one dataset
+marked_all_risk_ids <- rbind(marekd_CP2_risk,marekd_CP2and3_risk,marekd_newlist_id,marked_V1_Checkpoint3_78_rest)
+#merge prediction
+marked_all_risk_ids <- rbind(marekd_CP2_risk,marekd_CP2and3_risk,marekd_newlist_id,marked_V1_Checkpoint3_78_rest)
+# combined CP2 and 3 with same variables
+Checkpoint2.3 <- rbind(Checkpoint2, Checkpoint3)
+colnames(Checkpoint2.3)
+Checkpoint2.3[Checkpoint2.3$Student_ID==970566927,]
+length(unique(Checkpoint2.3$Student_ID)) #771=(306+420)
+
+
+marked_all_risk <- merge(marked_all_risk_ids, Checkpoint2.3, by.x="Student.ID", by.y="Student_ID", all.x  =T)
+marked_all_risk_nodup <- marked_all_risk_ids[!duplicated(marked_all_risk_ids),]
+
+marked_all_risk_info_fromCP2and3dataset <- merge(marked_all_risk_nodup, Checkpoint2.3, by.x="Student.ID", by.y="Student_ID", all.x = T )
+#prediction data
+library(readxl)
+Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("~/Data_IR/Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx") %>% 
+  mutate(aveAPR=ifelse(`Pr(AboveGPA)`>=0.5,"aveAPR","Non-aveAPR"))
+
+predictionID <- Prediction_NBC_By_Tier_FTIC2020_UWF %>% select(1,"APPLICANT_TIER","aveAPR")
+marked_all_risk_info_fromCP2and3dataset1 <- merge(marked_all_risk_info_fromCP2and3dataset,predictionID, by.x="Student.ID",by.y = "UNIV_ROW_ID", all.x = T )
+write.csv(marked_all_risk_info_fromCP2and3dataset1, "marked_all_risk_group_fromCP2and3dataset1.csv")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# combine predition and risk marked
+```{r}
+Prediction_PC2.risk <- merge(Prediction_NBC_By_Tier_FTIC2020_UWF,V2_Prediction_NBC_By_Tier_FTIC2020_UWF_1, by.x="UNIV_ROW_ID",by.y = "Student.ID",all.x = T)
+Prediction_PC2.risk[Prediction_PC2.risk$UNIV_ROW_ID==970566927,]#notice duplicated
+Prediction_PC2.risk <- Prediction_PC2.risk[!duplicated(Prediction_PC2.risk),]# remove duplicated()
+
+
+Checkpoint2.3 <- rbind(Checkpoint2, Checkpoint3)
+colnames(Checkpoint2.3)
+Checkpoint2.3[Checkpoint2.3$Student_ID==970566927,]
+length(unique(Checkpoint2.3$Student_ID)) #771=(306+420)
+
+
+Checkpoint_index1 <- Checkpoint2.3 %>% 
+  group_by(Student_ID) %>%  mutate(totalNumber_EW=row_number(), .by_group=T) %>% ungroup()%>%  group_by(Student_ID,Campaign_Name) %>% mutate(Number_EW_Check=row_number(), .by_group=T) %>% ungroup() %>% 
+  group_by(Student_ID,Course_Number) %>% mutate(Number_EW_Course=row_number(), .by_group=T)
+# merge with prediction 2020 and cp2 and 3
+EWNBC_results_checkPointup3 <- merge(Prediction_PC2.risk, Checkpoint_index1, by.x="UNIV_ROW_ID", by.y = "Student_ID", all.x = TRUE)
+
+# name for no EW
+EWNBC_results_checkPointup3$Alert_Reasons<- as.character(EWNBC_results_checkPointup3$Alert_Reasons)
+EWNBC_results_checkPointup3$Alert_Reasons[is.na(EWNBC_results_checkPointup3$Alert_Reasons)] <- "NoEW"
+
+# created colnames for Ew and aveGPAAPR index
+checkPointup3 <- EWNBC_results_checkPointup3 %>% 
+  mutate(EW_nonaveAPR = ifelse(Alert_Reasons=="NoEW" & aveAPR =="aveAPR" ,"NoEW_aveAPR",
+                               ifelse(Alert_Reasons=="NoEW" & aveAPR =="Non-aveAPR","NoEW_NoaveAPR",
+                                      ifelse(Alert_Reasons != "NoEW" & aveAPR =="Non-aveAPR"  , "EW_NoaveAPR",
+                                             ifelse(Alert_Reasons != "NoEW" & aveAPR =="aveAPR", "EW_aveAPR","Otehrs")))))
+checkPointup3[checkPointup3$UNIV_ROW_ID==970566927,] # checking the work
+checkPointup3[checkPointup3$UNIV_ROW_ID==970566927,] # checking the work
+write.csv(checkPointup3,"checkPointupto3.csv")
+
+xtabs(~checkPointup3$Campaign_Name + checkPointup3$totalNumber_EW)
+# export the data as csv file
+write.csv(checkPointup3,"CheckP2_risk_CP3_V3_Prediction_NBC_By_Tier_FTIC2020_UWF.csv")
+
+
+
+```
+Check-point 2 with risk
+```{r}
+CP2_Cp3_risk_group <-  checkPointup3 %>% filter(CP2_risk=="Yes")
+CP2_Cp3_risk_group_CP3 <-  checkPointup3 %>% filter(CP2_risk=="Yes" &  Campaign_Name== "F20 Academic Checkpoint 3" ) #from 150 cases to 126 cases
+length(unique(CP2_Cp3_risk_group_CP3$UNIV_ROW_ID)) # 48
+risky_g <- CP2_Cp3_risk_group %>% group_by(Campaign_Name) %>% summarise(count=n_distinct(UNIV_ROW_ID), .groups="drop"); risky_g
+xtabs(~CP2_Cp3_risk_group$APPLICANT_TIER+ CP2_Cp3_risk_group$totalNumber_EW)
+ 
+
+```
+Filter for CP2 risk with 6 and more than EW @CP3
+```{r}
+colnames(CP2_Cp3_risk_group)
+checkPointup3_code_maxEW <- CP2_Cp3_risk_group %>% group_by(UNIV_ROW_ID) %>%  mutate(Max_EW = max(totalNumber_EW), .by_group=T) 
+
+checkPointup3_code_maxEW[checkPointup3_code_maxEW$UNIV_ROW_ID == 970577458, ]
+
+xtabs(~checkPointup3_code_maxEW$Campaign_Name+checkPointup3_code_maxEW$Max_EW) # choose EW 6 and more
+
+# CP2 code red
+checkPointup3_code_red <- checkPointup3_code_maxEW %>% filter(Max_EW >= 6 & Campaign_Name== "F20 Academic Checkpoint 3" ) # 76 cases
+head(checkPointup3_code_red,20)
+length(unique(checkPointup3_code_red$UNIV_ROW_ID)) # 23
+write.csv(checkPointup3_code_red,"V1_checkPointup3_code_red.csv")
+
+
+```
+```{r}
+unique(checkPointup3$EW_nonaveAPR)
+ # group for CP2 and CP3 with predicted below GPA but risk CP2 
+CP2_CP3__group <-  checkPointup3 %>% filter(is.na(CP2_risk) & Alert_Reasons != "NoEW" & EW_nonaveAPR == "EW_NoaveAPR" ) %>% 
+                   group_by(UNIV_ROW_ID) %>%  mutate(MaxCP3_EW = max(Number_EW_Check), .by_group=T) 
+CP2_CP3__group[CP2_CP3__group$UNIV_ROW_ID==970572695,]
+
+CP2_CP3__group_risk <- CP2_CP3__group %>% filter(Campaign_Name=="F20 Academic Checkpoint 3" & MaxCP3_EW >= 2 )
+xtabs(~CP2_CP3__group_risk$Number_EW_Check)
+length(unique(CP2_CP3__group_risk$UNIV_ROW_ID)) #47
+write.csv(CP2_CP3__group_risk,"V1_CP2_CP3__group_risk.csv")
+```
+Capture risk Students from CP3 who are not include in CP2 risk group
+
+```{r}
+library(readxl)
+Checkpoint3 <- read_excel("~/EWUWF/Checkpoint3 Modified 11-5-20.xlsx", 
+    skip = 1) 
+names(Checkpoint3) <- gsub(" ", "_", names(Checkpoint3))
+Checkpoint3[Checkpoint3$Student_ID==970528189,]
+
+length(unique(Checkpoint3$Student_ID)) #420
+# reduce number from 420 to 221
+unique(Checkpoint3$Progress_Report_Grade)
+my_failing_grade <- c("F","D","D-",  "D+",  "C",   "C-",  "C+", "WP")
+unique(Checkpoint3$Tags)
+fromCP3 <- Checkpoint3 %>% filter(Progress_Report_Grade %in% my_failing_grade) %>% filter(Tags=="FT20Prelim")
+fromCP3_DT <- fromCP3 %>% group_by(Progress_Report_Grade) %>% summarise(count=n_distinct(Student_ID));fromCP3_DT
+xtabs(~fromCP3$Progress_Report_Grade + fromCP3$Tags)
+# choose the most FTs using grade == F 135
+fromCP3_F <- fromCP3 %>% filter(Progress_Report_Grade=="F")
+fromCP3_DT <- fromCP3 %>% group_by(Progress_Report_Grade) %>% summarise(count=n_distinct(Student_ID));fromCP3_DT
+xtabs(~fromCP3_F$Course_Number)
+# choose by filtering the negative comments for clear failing FT then we have from 290 to 74
+fromCP3_F$Progress_Report_Comment
+my_negative_comments <- c("cannot","No", "not","no","never","F","Unlikely","tapped out")
+fromCP3_F_negative <- fromCP3_F %>% filter(str_detect(Progress_Report_Comment, "canno|No|not|no|never|F|Unlikely|tapped out") ) %>% filter(Tags=="FT20Prelim")#74cases
+length(unique(fromCP3_F_negative$Student_ID)) #56
+
+```
+check the 74 are included in CP 2 risk or serious CP 2 risk group 
+```{r}
+colnames(fromCP3_F_negative)
+# get the 74 IDS
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF_test <- read_excel("G:/My Drive/EW/V2_Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx", 
+    sheet = "About 82 FT2020 (all)", skip = 0)   %>% mutate(CP2_risk=rep("Yes")) %>% select(Student.ID,CP2_risk)
+length(unique(V2_Prediction_NBC_By_Tier_FTIC2020_UWF_test$Student.ID))#55
+CP2_marked_risk <- V2_Prediction_NBC_By_Tier_FTIC2020_UWF_test[!duplicated(V2_Prediction_NBC_By_Tier_FTIC2020_UWF_test$Student.ID),]
+
+# mark for CP2 risk (named 82)
+fromCP3_F_negative_ID <- fromCP3_F_negative # %>% select(Student_ID,Course_Number)
+crossmatch <- merge(CP2_marked_risk, fromCP3_F_negative, by.x="Student.ID" , by.y="Student_ID", all.y = T) # need to get not CP2_risk
+crossmatch[which(is.na(crossmatch$CP2_risk)), "CP2_risk"] <- "No"
+
+# to get CP2 risk and CP3 negative
+fromCP3_risk_and_included_CP2150 <- crossmatch %>% filter(CP2_risk=="Yes")
+fromCP3_risk_and_included_CP2150[fromCP3_risk_and_included_CP2150$Student.ID==970584202,]
+length(unique(fromCP3_risk_and_included_CP2150$Student.ID)) #23/32
+write.csv(fromCP3_risk_and_included_CP2150,"fromCP3_flagged_and__CP2_risk.csv")
+
+#to get not CP2 risk but CP3 negative
+fromCP3_risk_not_included_CP2150 <- crossmatch %>% filter(CP2_risk=="No") 
+fromCP3_risk_not_included_CP2150[fromCP3_risk_not_included_CP2150$Student.ID==970584202,] # not included
+length(unique(fromCP3_risk_not_included_CP2150$Student.ID)) #33/42cases
+write.csv(fromCP3_risk_not_included_CP2150,"fromCP3_flagged_and__not_CP2_risk.csv")
+
+```
+Flaged by other
+```{r}
+V1_Checkpoint3 <- read_excel("G:/My Drive/EW/EWUWF/V1_Checkpoint3.xlsx",    sheet = "78_flaged")
+names(V1_Checkpoint3) <- gsub(" ", "_", names(V1_Checkpoint3))
+xtabs(~V1_Checkpoint3$Progress_Report_Grade)
+V1_Checkpoint3_id <- V1_Checkpoint3 %>% filter(Progress_Report_Grade=="F") %>%  select(Student_ID) #70
+V1_Checkpoint3_id <- V1_Checkpoint3[!duplicated(V1_Checkpoint3$Student_ID),] %>%  select(3)#61
+colnames(V1_Checkpoint3_id) <- "Student.ID"
+fromCP3_risk_and_included_CP2150_id <- fromCP3_risk_and_included_CP2150[!duplicated(fromCP3_risk_and_included_CP2150$Student.ID),] %>% select(1)#23 
+fromCP3_risk_not_included_CP2150_id <- fromCP3_risk_not_included_CP2150[!duplicated(fromCP3_risk_not_included_CP2150$Student.ID),] %>% select(1)#33
+ all_risk_id <- rbind(V1_Checkpoint3_id,fromCP3_risk_and_included_CP2150_id,fromCP3_risk_not_included_CP2150_id)
+ all_risk_id <- all_risk_id[!duplicated(all_risk_id$Student.ID),]#81
+ all_risk_prediction <- merge(all_risk_id, Prediction_NBC_By_Tier_FTIC2020_UWF, by.x="Student.ID", by.y="UNIV_ROW_ID", all.x = T)#81-16=65
+ NA_FT <-all_risk_prediction[is.na(all_risk_prediction$APPLICANT_TIER),]#16 from middle of nowhere there are not in FTIC2020list but flagged as FT20 in EW dataset
+ write.csv(NA_FT,"risk_FT_not_in_CSEdata_Cohort_Lists.csv")
+ 
+ NA_FT_ID <- data.frame(all_risk_prediction[is.na(all_risk_prediction$COHORT_YEAR),"Student.ID"])
+ names(NA_FT_ID) <- "Student.ID"
+ 
+ NA_FT_16 <- merge(Checkpoint_index1[Checkpoint_index1$Campaign_Name=="F20 Academic Checkpoint 3",], NA_FT_ID, by.x="Student_ID", by.y="Student.ID")
+  
+ xtabs(~all_risk_prediction$aveAPR + all_risk_prediction$APPLICANT_TIER)
+ 
+ NA_FT
+```
+Using flagged by others
+```{r}
+
+ all_risk_prediction_cse <- merge(all_risk_id, CSE2020, by.x="Student.ID", by.y="UNIV_ROW_ID", all.x = T)#81-16=65
+  xtabs(~all_risk_prediction_cse$ENTRY_COLLEGE + all_risk_prediction_cse$APPLICANT_TIER)
+    xtabs(~all_risk_prediction_cse$ENTRY_PROGRAM + all_risk_prediction_cse$APPLICANT_TIER)
+
+
+```
+Merge with CP2.3 data with flagged FT
+
+
+```{r}
+newlist <- read.csv("~/EWUWF/newlist.txt", header=FALSE)
+names(newlist) <- c("Student.ID","V2")
+newlist_id <- select(newlist, 1)
+glimpse(newlist_id)
+
+all_CP_flagged_81 <- merge(Checkpoint_index1, all_risk_id, by.x="Student_ID", by.y="Student.ID", all.y=T)
+all_CP_flagged_additional_22 <- merge(Checkpoint_index1, newlist_id, by="Student_ID", all.y = T)
+write.csv(all_CP_flagged_additional_22,"all_CP_flagged_additional_22.csv")
+
+length(unique(all_CP_flagged_additional_22$Student_ID))#22
+
+# merge all the lists id
+all_risk_11122020_id <- rbind(all_risk_id, newlist_id )
+all_risk_11122020_id[!duplicated(all_risk_11122020_id$Student.ID),]
+
+all_risk_FT <- merge(Prediction_NBC_By_Tier_FTIC2020_UWF, newlist_id, by.x = "UNIV_ROW_ID", by.y="Student.ID", all.y = T)
+sum(is.na(all_risk_11122020_id_prediction$APPLICANT_TIER)) #16 missing 
+write.csv(all_risk_11122020_id_prediction,"all_risk_11122020_id_prediction.csv")
+
+
+xtabs(~all_CP_flagged_81$Course_Number + all_CP_flagged_81$Campaign_Name)
+# for the campaing name included all
+xtabs(~Checkpoint_index1$Progress_Report_Grade + Checkpoint_index1$Campaign_Name)
+length(unique(all_CP_flagged_81$Student_ID))#81
+
+all_CP_flagged_81$Flagged_81 <- rep("Yes")
+
+
+
+
+
+
+
+
+
+
+
+```
+# combined with
+```{r}
+what_82_at_CP3 <- merge(CP2_marked_risk, Checkpoint3, by.x="Student.ID", by.y="Student_ID", all.x = T)
+what_82_at_CP3_id <- what_82_at_CP3[!duplicated(what_82_at_CP3$Student.ID),]
+
+what_82_at_CP3_id <-what_82_at_CP3_id[!is.na(what_82_at_CP3_id$Student_Name),] #48 at cp3 out of 55 from cp2
+what_82_at_CP3_id_risk <- select(what_82_at_CP3_id,"Student.ID") %>% mutate(Flagged_ind=rep("marked_82_CP2_CP3"))
+what_82_at_CP3_rest_id <- what_82_at_CP3[is.na(what_82_at_CP3$Student_Name),]
+length(unique(what_82_at_CP3_rest_id$Student.ID)) #7
+what_82_in_final_lists <- merge(all_risk_11122020_id, what_82_at_CP3_id, by.x="Student.ID",by.y="Student.ID", all.y=T)
+length(unique(what_82_in_final_lists$Student.ID)) #48 are in the
+
+what_82_rest <- merge(all_risk_11122020_id, what_82_at_CP3_rest_id, by.x="Student.ID",by.y="Student.ID", all.y=T)
+what_82_at_all_rest_id <- what_82_rest %>% select(1)
+length(unique(what_82_rest$Student.ID)) #7 are in the
+
+
+all_lists_CP3 <- merge(Checkpoint3, all_risk_11122020_id, by.x="Student_ID", by.y="Student.ID", all.y = T)
+```
+```{r}
+# last lists added
+library(readxl)
+HMCSE_Tier_4_5_202008_FTIC_Data_Summary_Oct_2020_edited_11_12 <- read_excel("C:/Users/jsparks3/Downloads/HMCSE Tier 4 & 5 202008 FTIC Data Summary_Oct 2020 edited 11_12.xlsx", 
+    sheet = "Summary")
+View(HMCSE_Tier_4_5_202008_FTIC_Data_Summary_Oct_2020_edited_11_12)
+```
+
+
+```{r}
+marekd_CP2_risk <- select(CP2_marked_risk, "Student.ID") %>% mutate(Flagged_ind = rep("marked_CP_risk_82"))
+marekd_CP2and3_risk <- select(what_82_at_CP3_id,"Student.ID") %>% mutate(Flagged_ind=rep("marked_82_CP2_CP3"))
+marekd_newlist_id <- select(newlist, 1)  %>% mutate(Flagged_ind=rep("marked_from_summary"))
+#marked_all_risk <- rbind(marekd_CP2_risk,marekd_CP2and3_risk,marekd_newlist_id,V1_Checkpoint3_78_rest)
+
+V1_Checkpoint3_78 <- V1_Checkpoint3 %>% select(Student_ID) %>%  mutate(Flagged_ind = rep("marekd_negative_78_CP3_but_CP2"))
+marked_V1_Checkpoint3_78_rest <-as.data.frame(setdiff(V1_Checkpoint3_78$Student_ID, marked_all_risk$Student.ID))# returen only unique in data x
+names(marked_V1_Checkpoint3_78_rest) <- c("Student.ID")
+  marked_V1_Checkpoint3_78_rest$Flagged_ind <- rep("marekd_negative_78_CP3_but_CP2")    
+V1_Checkpoint3_78_id <- V1_Checkpoint3_78[!duplicated(V1_Checkpoint3_78$Student_ID),]
+marked_risk_from_negative <- V1_Checkpoint3_78_id
+length(unique(marked_risk_from_negative$Student_ID))#61
+
+
+
+marked_negative_CP3_risk <- merge(marked_risk_from_negative, Checkpoint2.3, by.x="Student_ID", by.y="Student_ID", all.x  =T)
+
+marked_all_risk_info <- merge(marked_all_risk, Checkpoint2.3, by.x="Student.ID", by.y="Student_ID", all.x  =T)
+marked_all_risk[!duplicated(marked_all_risk), ]
+marked_all_risk[marked_all_risk$Student.ID==970593949,]
+length(unique(marked_all_risk$Student.ID)) #70
+
+marked_all_risk_ids <- rbind(marekd_CP2_risk,marekd_CP2and3_risk,marekd_newlist_id,marked_V1_Checkpoint3_78_rest)
+marked_all_risk <- merge(marked_all_risk, Checkpoint2.3, by.x="Student.ID", by.y="Student_ID", all.x  =T)
+marked_all_risk_nodup <- marked_all_risk_ids[!duplicated(marked_all_risk_ids),]
+
+marked_all_risk_info_fromCP2and3dataset <- merge(marked_all_risk_nodup, Checkpoint2.3, by.x="Student.ID", by.y="Student_ID", all.x = T )
+predictionID <- Prediction_NBC_By_Tier_FTIC2020_UWF %>% select(1,"APPLICANT_TIER","aveAPR")
+marked_all_risk_info_fromCP2and3dataset1 <- merge(marked_all_risk_info_fromCP2and3dataset,predictionID, by.x="Student.ID",by.y = "UNIV_ROW_ID", all.x = T )
+write.csv(marked_all_risk_info_fromCP2and3dataset1, "marked_all_risk_group_fromCP2and3dataset1.csv")
+```
+
+
+
+
+
+
+
+
+Descriptive data check point 3
+```{r}
+Checkpoint3_DS <- Checkpoint3 %>% group_by(Student_ID) %>% 
+  mutate(EWNumCP3=row_number());Checkpoint3_DS
+Checkpoint3_DS$Num_CP <- rep("CP3")
+length(unique(Checkpoint3_DS$Student_Name))
+xtabs(~Checkpoint3_DS$EWNumCP3+Checkpoint3_DS$Tags)
+head(Checkpoint3_DS,10)
+```
+
+
+
+
+Clean the check point data2 to match with check point 3
+
+```{r}
+Checkpoint2.V1 <- Checkpoint2 %>% select(-"Student Alternate ID",-"Assigned Staff",-"Creator",-"Creator Email",
+                                         -"Instructor" )
+
+Checkpoint2.3 <- rbind(Checkpoint2.V1, Checkpoint3)
+names(Checkpoint2.3) <- gsub(" ", "_", names(Checkpoint2.3))
+colnames(Checkpoint2.3)
+length(unique(Checkpoint2.3$Student_ID)) #771=(306+420) 
+```
+# Create index for number_EW for each students
+```{r}
+library(dplyr)
+Checkpoint_index1 <- Checkpoint2.3 %>% 
+  group_by(Student_ID) %>% arrange(Campaign_Name, .by_group=T) %>% mutate(totalNumber_EW=row_number(), .by_group=T) %>% ungroup()%>%  group_by(Student_ID,Campaign_Name) %>% mutate(Number_EW_Check=row_number(), .by_group=T) %>% ungroup() %>% 
+  group_by(Student_ID,Course_Number) %>% mutate(Number_EW_Course=row_number(), .by_group=T)
+```
+
+Merge with NBC_predicted model for risky FTIC
+
+```{r}
+library(readxl)
+Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("~/Data_IR/Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx") %>% 
+  mutate(aveAPR=ifelse(`Pr(AboveGPA)`>=0.5,"aveAPR","Non-aveAPR"))
+
+
+EWNBC_results_checkPointup3 <- merge(Prediction_NBC_By_Tier_FTIC2020_UWF, Checkpoint_index1,by.x="UNIV_ROW_ID",by.y = "Student_ID", all.x = TRUE)
+
+
+EWNBC_results_checkPointup3$Alert_Reasons<- as.character(EWNBC_results_checkPointup3$Alert_Reasons)
+EWNBC_results_checkPointup3$Alert_Reasons[is.na(EWNBC_results_checkPointup3$Alert_Reasons)] <- "NoEW"
+
+
+checkPointup3 <- EWNBC_results_checkPointup3 %>% 
+  mutate(EW_nonaveAPR = ifelse(Alert_Reasons=="NoEW" & aveAPR =="aveAPR" ,"NoEW_aveAPR",
+                               ifelse(Alert_Reasons=="NoEW" & aveAPR =="Non-aveAPR","NoEW_NoaveAPR",
+                                      ifelse(Alert_Reasons != "NoEW" & aveAPR =="Non-aveAPR"  , "EW_NoaveAPR",
+                                             ifelse(Alert_Reasons != "NoEW" & aveAPR =="aveAPR", "EW_aveAPR","Otehrs")))))
+checkPointup3[checkPointup3$UNIV_ROW_ID==970576968,]
+## about CP2 risk
+## CP2 risk only
+library(readxl)
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("G:/My Drive/EW/V2_Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx", 
+    sheet = "About 82 FT2020 (all)", skip = 0) 
+
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF$CP2_risk <- rep("Yes")
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF_1 <- V2_Prediction_NBC_By_Tier_FTIC2020_UWF %>% select(Student.ID,CP2_risk)
+
+checkPointup3_1 <- merge(checkPointup3,V2_Prediction_NBC_By_Tier_FTIC2020_UWF_1, by.x="UNIV_ROW_ID",by.y = "Student.ID",all.x = T)
+
+checkPointup3_1[checkPointup3_1$UNIV_ROW_ID==970576968,]#notice duplicated
+Nodup_checkPointup3_1<- checkPointup3_1[!duplicated(checkPointup3_1[c("UNIV_ROW_ID","totalNumber_EW")]),]
+Nodup_checkPointup3_1[Nodup_checkPointup3_1$UNIV_ROW_ID==970576968,]#notice duplicated
+
+write.csv(Nodup_checkPointup3_1,"CheckP2_risk_CP3_V2_Prediction_NBC_By_Tier_FTIC2020_UWF.csv")
+```
+```{r}
+library(plyr)
+detach(package:plyr)
+
+library(dplyr)
+# CP3 and CP2 risk group
+Nodup_checkPointup3_1Cp3 <- Nodup_checkPointup3_1 %>% filter(Campaign_Name=="F20 Academic Checkpoint 3" & CP2_risk=="Yes")
+CP3_2R <- Nodup_checkPointup3_1Cp3 %>% group_by(APPLICANT_TIER) %>% summarise(count=n_distinct(UNIV_ROW_ID));CP3_2R
+#CP2 risk group
+Nodup_checkPointup3_1Cp2 <- Nodup_checkPointup3_1 %>% filter(Campaign_Name=="F20 Academic Checkpoint 2" & CP2_risk=="Yes")
+CP2_2R <- Nodup_checkPointup3_1Cp2 %>% group_by(APPLICANT_TIER) %>% summarise(count=n_distinct(UNIV_ROW_ID));CP2_2R
+#library(dplyr)
+#ddply(Nodup_checkPointup3_1Cp3, ~(APPLICANT_TIER),  function(x) length(unique(Nodup_checkPointup3_1Cp3$UNIV_ROW_ID)))
+library(data.table)
+testDT <- setDT(Nodup_checkPointup3_1Cp3)[,.(count=uniqueN(UNIV_ROW_ID)), by=APPLICANT_TIER];testDT
+
+```
+
+
+
+
+
+
+
+### Report
+```{r}
+checkp3 <- checkPointup3 %>% filter(Campaign_Name=="F20 Academic Checkpoint 3") #%>% filter(Tags=="FT20Prelim")
+length(unique(checkp3$UNIV_ROW_ID))
+length(unique(checkp3$Course_Number )) 
+length(unique(checkp3$COHORT_YEAR)) 
+length(unique(checkp3$Section_Name)) 
+length(unique(checkp3$Section_Name)) 
+
+length(unique(Checkpoint3$Student_ID))
+length(unique(Checkpoint3$Course_Number))
+length(unique(Checkpoint3$Section_Name))
+
+
+colnames(checkp3
+         )
+```
+filter for tier 4 and 5
+```{r}
+risk_FTIC2020_CP3 <- checkp3 %>% 
+  group_by(UNIV_ROW_ID) %>% arrange(Number_EW_Check) %>% 
+  filter(APPLICANT_TIER >3 & EW_nonaveAPR=="EW_NoaveAPR") 
+length(unique(risk_FTIC2020_CP3$UNIV_ROW_ID)) #45
+
+
+risk_tier3 <- checkp3 %>% filter(APPLICANT_TIER==3 & EW_nonaveAPR=="EW_NoaveAPR" & Number_EW_Check>=2)        
+length(unique(risk_tier3$UNIV_ROW_ID)) #16
+
+risk_tier3Id <- risk_tier3 %>%  select(UNIV_ROW_ID)
+#total EW
+risk_tier3gt3ew <- merge(risk_tier3Id, checkp3, by="UNIV_ROW_ID", all.x = T) #68                                                           
+risk_ew_tier <- rbind(risk_FTIC2020_CP3,risk_tier3gt3ew)
+risk_ew_tier <- risk_ew_tier %>% group_by(UNIV_ROW_ID) %>% mutate(Number_EW3=row_number())
+risk_ew_tier$MarkCP3_PAM <- rep("MarkedCP3")
+write.csv(risk_ew_tier,"risk_ew_tier.csv")
+length(unique(risk_ew_tier$UNIV_ROW_ID)) #76
+       
+                                                       
+                                                               
+                                                               
+                                                               
+                                                               
+```
+75 FT from EW CP2 and CP3
+```{r}
+## CP2 risk only
+library(readxl)
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("G:/My Drive/EW/V2_Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx", 
+    sheet = "About 82 FT2020 (all)", skip = 0) 
+
+## all CP2
+V2_CP2_Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("G:/My Drive/EW/V2_Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx", 
+    sheet = "MASTER_EWNBC_results", skip = 0) 
+EW_CP2_all <- V2_CP2_Prediction_NBC_By_Tier_FTIC2020_UWF %>% filter(AlertR1 != "NoEW")
+length(unique(EW_CP2_all$Student.ID))#306
+
+
+
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF$Num_CP <- rep("CP2.risk")
+length(unique(V2_Prediction_NBC_By_Tier_FTIC2020_UWF$Student.ID)) #55
+glimpse(V2_Prediction_NBC_By_Tier_FTIC2020_UWF)
+# arrange cours number by alpha for both CP
+## CP2.risk group
+V2_Prediction_NBC_By_Tier_FTIC2020_UWF <- V2_Prediction_NBC_By_Tier_FTIC2020_UWF %>% group_by(Student.ID) %>% arrange(Course.Number.y, .by_group=T) %>% 
+  mutate(EWNumCP2=row_number())
+## CP3
+Checkpoint3_DS <- Checkpoint3 %>% group_by(Student_ID) %>% arrange(Course_Number, .by_group=T) %>% 
+  mutate(EWNumCP3=row_number(), .by_group=T)
+Checkpoint3_DS$Num_CP <- rep("CP3")
+Checkpoint3_DS$Course_NumberCP3 <- Checkpoint3_DS$Course_Number
+length(unique(Checkpoint3_DS$Student_Name))#420
+xtabs(~Checkpoint3_DS$EWNumCP3+Checkpoint3_DS$Tags)
+head(Checkpoint3_DS,10)
+
+## merge
+CP3andCP2risk <- merge(V2_Prediction_NBC_By_Tier_FTIC2020_UWF, Checkpoint3_DS, by.x=c("Student.ID","Course.Number.y"), by.y=c("Student_ID","Course_Number"), all.x=T)
+colnames(CP3andCP2risk)
+## merge only Id
+CP3andCP2riskID.y <- merge(V2_Prediction_NBC_By_Tier_FTIC2020_UWF, Checkpoint3_DS, by.x=c("Student.ID","Course.Number.y"), by.y=c("Student_ID","Course_Number"), all.y=T)
+
+
+### choose variables and rename the columns by CP
+CP2.riskandCP3.variables <- CP3andCP2risk %>%  select(1,"APPLICANT_TIER","Num_CP.2"="Num_CP.x","Course.Number.CP2"="Course.Number.y","EWNumCP2","Section.Name.CP2"="Section.Name","Creator.Email","Instructor","Student_Name","Student_E-mail","Num_CP.3"="Num_CP.y","Course_Number_CP3"="Course_NumberCP3","Section_Name_CP3"="Section_Name","Progress_Report_Grade","Progress_Report_Comment","Campaign_Name",9:16,,"aveAPR")
+length(unique(CP2.riskandCP3.variables$Student.ID)) #55
+### Id only
+### choose variables and rename the columns by CP
+CP2.riskandCP3.variablesID <- CP3andCP2riskID %>%  select(1,"APPLICANT_TIER","Num_CP.2"="Num_CP.x","Course.Number.CP2"="Course.Number.y","EWNumCP2","Section.Name.CP2"="Section.Name","Creator.Email","Instructor","Student_Name","Student_E-mail","Num_CP.3"="Num_CP.y","Course_Number_CP3"="Course_NumberCP3","EWNumCP3","Section_Name_CP3"="Section_Name","Progress_Report_Grade","Campaign_Name",9:15,,"aveAPR")
+length(unique(CP2.riskandCP3.variablesID$Student.ID)) #55
+### choose variables and rename the columns by CP
+CP2.riskandCP3.variablesID.y <- CP3andCP2riskID.y %>%  select(1,"APPLICANT_TIER","Num_CP.2"="Num_CP.x","Course.Number.CP2"="Course.Number.y","EWNumCP2","Section.Name.CP2"="Section.Name","Creator.Email","Instructor","Student_Name","Student_E-mail","Num_CP.3"="Num_CP.y","Course_Number_CP3"="Course_NumberCP3","EWNumCP3","Section_Name_CP3"="Section_Name","Progress_Report_Grade","Campaign_Name",9:15,,"aveAPR")
+length(unique(CP2.riskandCP3.variablesID.y$Student.ID)) #55
+colnames(CP2.riskandCP3.variables)
+```
+About 150 cases CP2 
+```{r}
+
+CP2.riskandCP3.variables.DS <- CP2.riskandCP3.variables %>% 
+group_by(APPLICANT_TIER, Num_CP.2, Num_CP.3) %>% summarise(CFTIC=n());CP2.riskandCP3.variables.DS
+
+
+
+
+```
+```{r}
+CP2.riskandCP3.variables.DS1 <- CP2.riskandCP3.variables %>% 
+group_by(Course.Number.CP2,Course_Number_CP3 ) %>% summarise(CFTIC=n());CP2.riskandCP3.variables.DS1
+
+
+```
+
+
+
