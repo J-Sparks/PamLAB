@@ -1,0 +1,251 @@
+---
+title: "R repeate plot"
+output: html_notebook
+---
+This is repeated plot function practice
+https://www.diegobarneche.com/2014-12-11-ufsc/lessons/40-repeating/index.html
+
+### simplifying plots with plyr
+```{r}
+setwd("C:/Users/jsparks3/Documents/Data_IR")
+FTIC_Fall_semester_all_CRS <- read.csv("~/Data_IR/FTIC_Fall_semester_all_CRS.csv")
+colnames(FTIC_Fall_semester_all_CRS)
+by_cohort_HSGPA_variables <- select(FTIC_Fall_semester_all_CRS, 2,4,5,8,12,20,27)
+colnames(by_cohort_HSGPA_variables)
+by_cohort_HSGPA_variables[1:5,]
+
+#remove duplicated
+by_cohort_HSGPA_variables_nodup <-  by_cohort_HSGPA_variables[!duplicated(by_cohort_HSGPA_variables$STU_ID),]
+by_cohort_HSGPA_variables_nodup[1:20,]
+by_cohort_HSGPA_variables_nodup[which(is.na(by_cohort_HSGPA_variables_nodup$Stu_GPAHighSchool)), "Stu_GPAHighSchool"] <- 0
+by_cohort_HSGPA_variables_nodup[1:20,]
+
+#return !=zero values
+by_cohort_HSGPA_variables_nodupna <- by_cohort_HSGPA_variables_nodup[by_cohort_HSGPA_variables_nodup$Stu_GPAHighSchool !=0,]
+by_cohort_HSGPA_variables_nodupna[20:30,]
+```
+### using HS GPA and first term total grade points
+
+```{r}
+
+by_cohrot_GPAHS <- by_cohort_HSGPA_variables_nodupna %>% group_by(Cohort.x) %>% summarise(meanHSGPA=mean(Stu_GPAHighSchool), count=n());by_cohrot_GPAHS
+
+
+```
+
+### CSE GPA HS data need to import to get FTIC 2018:2020 GPAHS information and ist term GPA
+
+```{r}
+CSEdata_copy <- CSEdata
+CSEdata_copy[which(is.na(CSEdata_copy$GPA_HIGHSCHOOL)),]
+CSEdata_copy[which(CSEdata_copy$GPA_HIGHSCHOOL<=3.3 & CSEdata$APPLICANT_TIER ==3),] # no zeros
+CSEdata_copy[which(CSEdata$COUNTY=="Non-Florida" & CSEdata$HIGH_SCHOOL_NAME=="Non-Florida High School"),] # no zeros
+CSEdata_copy[which(is.na(CSEdata$ACT_PROPORTION)),"ACT_PROPORTION"] <- 0 # no zeros
+CSEdata_copy[which(is.na(CSEdata$SAT_PROPORTION)),"SAT_PROPORTION"] <- 0 # no zeros
+CSEdata_copy[which(is.na(CSEdata_copy$GPA_HIGHSCHOOL)), "GPA_HIGHSCHOOL"] <- 0
+CSEdata_copy[CSEdata_copy$GPA_HIGHSCHOOL==0, "GPA_HIGHSCHOOL"] <- NA
+
+CSEdata_copy[which(is.na(CSEdata_copy$GPA_HIGHSCHOOL)),]
+
+
+```
+```{r}
+
+CSEdata_copy$Standard_test_pop <-  pmax(CSEdata$ACT_PROPORTION, CSEdata$SAT_PROPORTION, na.rm = T)
+CSEdata_copy[1:20, 45:57]
+CSEdata_copy[which(is.na(CSEdata_copy$Standard_test_pop)),"Standard_test_pop"]
+summary(CSEdata_copy)
+
+```
+```{r}
+CSEdata_copy$Cohort <- stringr::str_extract(CSEdata_copy$COHORT_YEAR, "^.{4}")
+CSEdata_copy[1:10,]
+
+```
+```{r}
+xtabs(~CSEdata_copy$Cohort +CSEdata_copy$APPLICANT_TIER +CSEdata_copy$APR)
+```
+
+
+
+```{r}
+CSEdata_copy_HSGPA <- CSEdata_copy %>% group_by(Cohort) %>% summarise(meanHSGPA=mean(GPA_HIGHSCHOOL, na.rm = T), meanGPAT1=mean(FIRST_FALL_GPA, na.rm = T), count=n());CSEdata_copy_HSGPA
+```
+
+```{r}
+
+HSGPA_by_cohort <- function(ETHNICITY,CSEdata_copy,base_cohort=2015){
+  dsub <- CSEdata_copy[CSEdata_copy$ETHNICITY=="White", c("Cohort","GPA_HIGHSCHOOL")]
+  dsub$GPA_rel <-  dsub$GPA_HIGHSCHOOL/dsub$GPA_HIGHSCHOOL[dsub$Cohort == base_cohort]
+  dsub
+}
+
+plot()
+
+
+
+```
+
+
+
+
+
+```{r}
+CRSCSEData <- read.csv("~/Data_IR/CRSCSEData.csv")
+unique(CRSCSEData$GRADE_AWARDED)#"F"  "B-" "C-" "C+" "W"  "D"  "B+" "C"  "A"  "A-" "I*" "B"  "S"  "D+" "NF" "XX" "I"  "U"  "P"  "NG" NA 
+CRSCSEData_copy <- CRSCSEData
+CRSCSEData_copy$GradePoints <- CRSCSEData_copy$GRADE_AWARDED
+CRSCSEData_copy[which(is.na(CRSCSEData_copy$GradePoints)), "GradePoints"] <- 99
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="A", "GradePoints"] <- 4.0
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="A-", "GradePoints"] <- 3.70
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="B+", "GradePoints"] <- 3.30
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="B", "GradePoints"] <- 3.00
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="B-", "GradePoints"] <- 2.70
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="C", "GradePoints"] <- 2.00
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="C+", "GradePoints"] <- 2.30
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="C-", "GradePoints"] <- 1.70
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="D", "GradePoints"] <- 1.00
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="D+", "GradePoints"] <- 1.30
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="F", "GradePoints"] <- 0.00
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="NF", "GradePoints"] <- 0.00
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="U", "GradePoints"] <- 0.00
+CRSCSEData_copy[CRSCSEData_copy$GradePoints=="NG", "GradePoints"] <- 0.00
+
+attach(CRSCSEData_copy)
+my_no_grade <- c("S","P","XX","I","I*","W")
+CRSCSEData_copy$GradePoints <- sapply(CRSCSEData_copy[,8], function(x) replace(x, x %in% c("S","P","XX","I","I*","W"), 99))
+ CRSCSEData_copy$GradePoints <- as.numeric(CRSCSEData_copy$GradePoints)
+  CRSCSEData_copy$STU_SECTN_CRED <- as.numeric(CRSCSEData_copy$STU_SECTN_CRED)
+
+# TGP calculation
+CRSCSEData_copy_GPAGrades <- CRSCSEData_copy %>% filter(GradePoints<99) # filter out NA
+CRSCSEData_copy_GPAGrades$TGP_each <-  CRSCSEData_copy_GPAGrades$GradePoints*CRSCSEData_copy_GPAGrades$STU_SECTN_CRED
+CRSCSEData_copy_GPAGrades.TGP_all <- CRSCSEData_copy_GPAGrades %>%group_by(UNIV_ROW_ID)   %>%  summarise(TGP_all=sum(TGP_each),TGP_credit=sum(STU_SECTN_CRED) ,GPAY1=TGP_all/TGP_credit,.groups="drop");CRSCSEData_copy_GPAGrades.TGP_all
+#checkc
+CSEdata[CSEdata$UNIV_ROW_ID==970295713,]
+CRSCSEData_copy_GPAGrades.TGP_all[CRSCSEData_copy_GPAGrades.TGP_all$UNIV_ROW_ID==970295713,]
+CRSCSEData[CRSCSEData$UNIV_ROW_ID==970295713,]
+sum(is.na(CRSCSEData_copy_GPAGrades.TGP_all$TGP_all))
+
+```
+# get HS GPA and TGP 
+## find the difference btw GPA_ENTERING_SECOND_FALL and GPAY1
+
+```{r}
+CSEdata_copy_HSGPA_variables <- CSEdata_copy[CSEdata_copy$Cohort<= 2019,] %>% select(UNIV_ROW_ID,GPA_HIGHSCHOOL,Cohort,GPA_ENTERING_SECOND_FALL,APR,ATTENDED_SECOND_FALL_TERM,Standard_test_pop );head(CSEdata_copy_HSGPA_variables)
+
+CSE_GPA_HS_TGP <- merge(CSEdata_copy_HSGPA_variables,CRSCSEData_copy_GPAGrades.TGP_all, by="UNIV_ROW_ID", all.x=T)
+CSE_GPA_HS_TGP[which(is.na(CSE_GPA_HS_TGP$GPA_HIGHSCHOOL)),]
+CSE_GPA_HS_TGP_nona <- CSE_GPA_HS_TGP[complete.cases(CSE_GPA_HS_TGP),]
+CSE_GPA_HS_TGP_nona[CSE_GPA_HS_TGP_nona$UNIV_ROW_ID==970295713,]
+CSE_GPA_HS_TGP_nona$diffGPA <- round(CSE_GPA_HS_TGP_nona$GPA_ENTERING_SECOND_FALL-CSE_GPA_HS_TGP_nona$GPAY1, digits = 4) # there is difference APR GPA and raw GPA Y1
+CSE_GPA_HS_TGP_nona[CSE_GPA_HS_TGP_nona$GPA_ENTERING_SECOND_FALL<= 2.0,]
+
+```
+```{r}
+CSE_GPA_HS_TGP_nona[CSE_GPA_HS_TGP_nona$GPA_ENTERING_SECOND_FALL<= 2.0 & CSE_GPA_HS_TGP_nona$GPAY1>=2.0 & CSE_GPA_HS_TGP_nona$ATTENDED_SECOND_FALL_TERM=="Yes",]#970401032 #970541362 grade I is included in this case and  970513055 early graduated
+
+
+
+
+```
+# check the diff GPAY1 and APRGPA
+
+```{r}
+CSE_GPA_HS_TGP_nona[CSE_GPA_HS_TGP_nona$diffGPA != 0,]
+```
+```{r}
+CES_GPA <- CSE_GPA_HS_TGP_nona %>% group_by(Cohort) %>% summarise(count=n());CES_GPA
+CSE_GPA_HS_TGP_nona$APR <- as.factor(CSE_GPA_HS_TGP_nona$APR)
+summary(CSE_GPA_HS_TGP_nona[CSE_GPA_HS_TGP_nona$GPA_ENTERING_SECOND_FALL>0,])
+```
+
+
+### mean values for Credits ==28(median) , APR & find the growth GPA rate base on Cohort == mean(2015) & CSE_GPA_HS_TGP_nona$APR=="Yes" 
+```{r}
+mean_f <- CSE_GPA_HS_TGP_nona[CSE_GPA_HS_TGP_nona$TGP_credit == 28 & CSE_GPA_HS_TGP_nona$APR=="Yes" ,] %>%  group_by(Cohort)%>%  summarise(meanHSGPA=mean(GPA_HIGHSCHOOL), meanTGP=mean(TGP_all), meanGPAY1=mean(GPAY1), meanCredit=mean(TGP_credit),meanGPAY1APR=mean(GPA_ENTERING_SECOND_FALL),meanTEST=mean(Standard_test_pop),count=n(), .groups="drop");mean_f
+
+# find growth
+mean_f_growth <- mean_f %>% summarise(growthHSGPA=round(mean_f$meanHSGPA/3.613256-1, digits = 6), growthTGP=round(mean_f$meanTGP/84.38023-1, digits = 6),growthGPAAPRY1=round((mean_f$meanGPAY1APR/3.041989)-1, digits = 6),growthTEST1=round(mean_f$meanTEST/0.5898980-1, digits = 6) ,growthGPAY1=round(mean_f$meanGPAY1/3.013580-1, digits = 6));mean_f_growth
+# using GPA year1(rawdata)
+```
+
+```{r}
+hist(CSE_GPA_HS_TGP_nona$GPA_HIGHSCHOOL)
+hist(CSE_GPA_HS_TGP_nona$TGP_all)
+hist(CSE_GPA_HS_TGP_nona$GPAY1)
+
+
+
+```
+### Normalixation function
+```{r}
+glimpse(CSE_GPA_HS_TGP_nona)
+CSE_GPA_HS_TGP_nona <- CSE_GPA_HS_TGP_nona[c(1,2,3,5,6,4,7,8,9,10)]
+  head(CSE_GPA_HS_TGP_nona)
+
+
+range_normal <- function(x){
+  (x-min(x))/(max(x)-min(x))
+}
+
+# apply
+HS_GPA_normal <- as.data.frame(lapply(CSE_GPA_HS_TGP_nona[2:4], range_normal))
+names(HS_GPA_normal) <- c("Normal_HSGPA","Normal_GPAY1APR","NormalTGPY1")
+head(HS_GPA_normal)
+
+```
+# using 2015 HS GPA ==3.582532	
+```{r}
+
+
+
+```
+
+
+
+
+
+```{r}
+
+based_2015GPA <- function(x,CSE_GPA_HS_TGP_nona,base_cohort=2015 ){
+  fsub <- CSE_GPA_HS_TGP_nona[CSE_GPA_HS_TGP_nona$Cohort == Cohort, c("GPA_HIGHSCHOOL","GPAY1")]
+  fsub$GPAgrowth <- (fsub$GPA_HIGHSCHOOL-mean[fsub$GPA_HIGHSCHOOL & fsub$Cohort== base_cohort])*100/mean[fsub$GPA_HIGHSCHOOL & fsub$Cohort== base_cohort]
+  fsub
+ # ((x-3.5825)/3.5825)*100
+}
+
+HS_GPA_growth <- as.data.frame(lapply(CSE_GPA_HS_TGP_nona[2], CSE_GPA_HS_TGP_nona, based_2015GPA))
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+This is an example of exponential growth function in r
+```{r}
+x = 1:100
+y= x^3
+
+fit = lm(log(y )~x)
+plot(x,y)
+lines(x, exp(fitted(fit)), col="blue")
+```
