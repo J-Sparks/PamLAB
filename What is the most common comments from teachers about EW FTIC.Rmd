@@ -1,0 +1,73 @@
+---
+title: "What is the most common comments from teachers about EW FTIC? - @ CP3"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+setwd("~/EWUWF")
+library(readxl)
+CP3progress <- read_excel("~/EWUWF/Checkpoint3 Modified 11-5-20.xlsx", 
+    skip = 1) 
+names(CP3progress) <- gsub(" ", "_", names(CP3progress))
+length(unique(CP3progress$Student_ID)) #420
+colnames(CP3progress)
+mytext <- CP3progress$Progress_Report_Comment #remove duplicated and NA 
+
+mytext1 <- mytext[!duplicated(mytext)]
+mytext2 <- mytext1[!is.na(mytext1)];head(mytext2,20)
+mytext3 <- gsub("missing", "missed", mytext2)
+
+```
+TEXT cleaning
+
+```{r}
+library(tm)
+library(wordcloud) #library(pdftools)
+library(textclean)
+# create corpus
+
+txt_corpus <- Corpus(VectorSource(mytext3)) #A vector source interprets each element of the vector x as a document
+
+#clean corpus
+txt_corpus <- tm_map(txt_corpus, tolower) # all lowercase
+txt_corpus <- tm_map(txt_corpus, removePunctuation)
+txt_corpus <- tm_map(txt_corpus, stripWhitespace)
+head(stopwords("english")) #[1] "i"      "me"     "my"     "myself" "we"     "our" etc
+txt_corpus <- tm_map(txt_corpus, removeWords, stopwords("en")) # remove stop words
+
+my_remove_word <- c("student","students","grade","course") # not useful words in this case
+txt_corpus <- tm_map(txt_corpus, removeWords, my_remove_word)
+
+txt_corpus <- tm_map(txt_corpus, replace_curly_quote) # no quotes
+txt_corpus <- tm_map(txt_corpus, removeNumbers) # no numbers
+#txt_corpus1 <- gsub("missed","missing",txt_corpus) # no past tense
+txt_corpus$content
+
+
+
+```
+Create matrix
+```{r}
+dtm <- t(as.matrix( DocumentTermMatrix(txt_corpus)))
+# number of occurrences
+number_occur <- rowSums(dtm)
+number_occur <- sort(number_occur, decreasing = T)
+number_occur[1:10]
+
+
+```
+
+Plot wordcloud
+```{r}
+set.seed(123)
+wordcloud(head(names(number_occur), 20), head(number_occur, 20),scale = c(4,.2), min.freq = 4,
+          random.color = F,
+          colors = brewer.pal(5,"Set1"))
+
+
+```
+
