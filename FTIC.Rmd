@@ -1,0 +1,323 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+View(FTICALL)
+library(dplyr)
+glimpse(FTICALL)
+```
+
+```{r}
+glimpse(mydegree)
+
+```
+```{r}
+Po_degree <- select(mydegree, "STU_ID","Cohort","FOURYEARGRAD","Degree1AwardDate","Stu_CollegeBegin","Stu_CollegeEnd","Stu_CollegeChange","Stu_TotalInstHours1","Stu_TotalInstHours2","Stu_TotalInstHours3","Stu_TotalInstHours4")
+```
+```{r}
+unique(Po_degree$Stu_CollegeEnd)
+
+```
+```{r}
+HMCSE <- filter(Po_degree, Po_degree$Stu_CollegeEnd =="Science and Engineering")
+dff <- table(HMCSE$Cohort, HMCSE$Stu_CollegeEnd)
+dff
+```
+```{r}
+df1 <- table(HMCSE$Cohort, HMCSE$FOURYEARGRAD)
+df1
+```
+
+```{r}
+x <-  c(43,54,50,57,60,47,65)
+mean(x)
+```
+```{r}
+df2 <- table(HMCSE$Cohort, HMCSE$Stu_CollegeBegin)
+df2
+```
+
+```{r}
+table(HMCSE$Cohort)
+
+```
+```{r}
+table(mydegree$Stu_InstQPS1)
+mean(HMCSE$Stu_TotalInstHours1)
+mean(HMCSE$Stu_TotalInstHours2)
+```
+```{r}
+mean(HMCSE$Stu_TotalInstHours2)
+```
+```{r}
+mean(HMCSE$Stu_TotalInstHours3)
+```
+
+```{r}
+mean(HMCSE$Stu_TotalInstHours4)
+```
+```{r}
+FTICHMCSE <- filter(mydegree, mydegree$Stu_CollegeBegin == "Science and Engineering")
+table(FTICHMCSE$Cohort)
+```
+
+```{r}
+InFTICHMCSE <- filter(FTICHMCSE, FTICHMCSE$FOURYEARGRAD == 1)
+table(InFTICHMCSE$Cohort)
+
+```
+```{r}
+100/425 #FTIC2014 23.52% 4 years graduation rate
+```
+```{r}
+B <-  c(68,71,76,82,90,78,100)
+mean(B)
+```
+```{r}
+summary(B)
+
+```
+
+```{r}
+sd(B)
+```
+
+```{r}
+# filter the begin and end HMCSE for FTIC
+BEFTICHMCSE <- filter(mydegree, mydegree$Stu_CollegeBegin == "Science and Engineering" & mydegree$Stu_CollegeEnd =="Science and Engineering")
+table(BEFTICHMCSE$FOURYEARGRAD)
+```
+
+```{r}
+table(BEFTICHMCSE$Cohort, BEFTICHMCSE$FOURYEARGRAD)
+```
+```{r}
+mean(c(37,46,38,50,53,37,51)) #enter HMCSe and end HMCSE 4 years rate
+```
+```{r}
+37/401 #0.0922
+51/425 # 0.12
+78/401 #0.1945
+100/425 # 0.2352 
+
+0.12-0.2352 #0.1152 increased changed HMCSE 2014 FTIC
+0.1945-0.0922 #0.1023 increased 2013 FTIC
+78-37 #41 FTIC changed major 
+100-51  #49 FTIC changed major
+```
+
+```{r}
+41/401 # 0.1022 changed HMCSE
+49/425 #0.1152 changed HMCSE
+```
+```{r}
+# need to know Univ. hrs for years
+Uni.hrs_4yrs <- select(mydegree, "STU_ID","Cohort","FOURYEARGRAD","Stu_CollegeBegin","Stu_CollegeEnd","Stu_TotalUniversityHoursBegin","Stu_TotalUniversityHoursEnd","Stu_TotalUniversityHours1","Stu_TotalUniversityHours2","Stu_TotalUniversityHours3","Stu_TotalUniversityHours4")
+```
+
+```{r}
+IntimeFTIC <- filter(Uni.hrs_4yrs, Uni.hrs_4yrs$FOURYEARGRAD == 1)
+mean1 <- mean(IntimeFTIC$Stu_TotalUniversityHours1)
+mean2 <- mean(IntimeFTIC$Stu_TotalUniversityHours2)
+mean3 <- mean(IntimeFTIC$Stu_TotalUniversityHours3)
+mean4 <- mean(IntimeFTIC$Stu_TotalUniversityHours4)
+
+M <- c(mean1,mean2,mean3,mean4)
+M
+#IntimeFTIC$Stu_TotalUniversityHours2,IntimeFTIC$Stu_TotalUniversityHours3,IntimeFTIC$Stu_TotalUniversityHours4))
+
+#table(IntimeFTIC$Cohort, IntimeFTIC$Stu_TotalUniversityHours1)
+
+```
+
+```{r}
+mean(Uni.hrs_4yrs$Stu_TotalUniversityHoursEnd)
+```
+```{r}
+mean(IntimeFTIC$Stu_TotalUniversityHoursEnd)
+```
+```{r}
+OUTtimeFTIC <- filter(mydegree, mydegree$FOURYEARGRAD ==0)
+OUTHMCSEFTIC <- filter(OUTtimeFTIC, OUTtimeFTIC$Stu_CollegeBegin == "Science and Engineering")
+table(OUTHMCSEFTIC$Cohort)
+```
+
+```{r}
+outmean1 <- mean(OUTHMCSEFTIC$Stu_TotalUniversityHours1)
+outmean2 <- mean(OUTHMCSEFTIC$Stu_TotalUniversityHours2)
+outmean3 <- mean(OUTHMCSEFTIC$Stu_TotalUniversityHours3)
+outmean4 <- mean(OUTHMCSEFTIC$Stu_TotalUniversityHours4)
+M2 <- c(outmean1,outmean2,outmean3,outmean4)
+M2
+```
+
+```{r}
+#4 years FTIC crd hours
+df1 <- filter(mydegree, mydegree$FOURYEARGRAD==1 & mydegree$Stu_CollegeBegin == "Science and Engineering")
+table(df1$Cohort, df1$FOURYEARGRAD)
+
+```
+```{r}
+table(df1$Stu_DepartmentEnd, df1$Cohort)
+
+```
+
+
+```{r}
+# df1 is the 4 years rate HMCSE
+t1 <- table( df1$Stu_DepartmentEnd, df1$Cohort)
+DFtable <- as.data.frame(t1)
+DFtable
+colnames(DFtable) <-  c("Depart","Cohort","Count")
+DFtable$total.count <- DFtable(DFtable)
+```
+
+```{r}
+t2 <- table(df1$Stu_DepartmentEnd, df1$Cohort)
+
+#t2df <-  as.data.frame(t2)
+```
+
+
+```{r}
+df01 <- select(df1, "Cohort", "Stu_TotalUniversityHoursBegin", "Stu_TotalInstHoursBegin", "Stu_TotalUniversityHours1", "Stu_TotalInstHours1")
+unib_in <- mean(df01$Stu_TotalUniversityHoursBegin)
+insb_in <- mean(df01$Stu_TotalInstHoursBegin)
+uni01_in <- mean(df01$Stu_TotalUniversityHours1)
+ins01_in <- mean(df01$Stu_TotalInstHours1)
+beginmena_in <- c(unib_in, insb_in, uni01_in, ins01_in)
+beginmena_in
+```
+
+```{r}
+df2 <- select(OUTHMCSEFTIC, "Cohort", "Stu_TotalUniversityHoursBegin", "Stu_TotalInstHoursBegin", "Stu_TotalUniversityHours1", "Stu_TotalInstHours1")
+#mean of prior hrs
+unib <- mean(df2$Stu_TotalUniversityHoursBegin)
+insb <- mean(df2$Stu_TotalInstHoursBegin)
+uni01 <- mean(df2$Stu_TotalUniversityHours1)
+ins01 <- mean(df2$Stu_TotalInstHours1)
+beginmena <- c(unib, insb, uni01, ins01)
+beginmena
+#df2mean <- c(mean(df2$Stu_TotalUniversityHoursBegin, df2$Stu_TotalInstHoursBegin,df2$Stu_TotalUniversityHours1))
+#df2mean
+#summary(df2)
+```
+```{r}
+write.csv(OUTHMCSEFTIC, "OUTTIMEFTIC.csv")
+```
+```{r}
+HMCSEun01 <- filter(mydegree, mydegree$Stu_CollegeBegin =="Science and Engineering")
+plot(table(df1$Cohort, df1$HoursDWFCount4))
+```
+```{r}
+plot(table(OUTHMCSEFTIC$Cohort, OUTHMCSEFTIC$HoursDWFCount4))
+
+```
+
+```{r}
+# filter for Persistence of 1st math courses vs. 1st year CRD hours relationship
+FTIC2017Fall <- filter(mydegree, mydegree$Cohort ==2017)
+HMCSE2017 <- filter(FTIC2017Fall, FTIC2017Fall$Stu_CollegeBegin == "Science and Engineering")
+MAC2017 <- filter(crs, crs$Course_Term =="Fall 2017" & crs$Course_CrsPrefix == "MAC")
+# merge for 2017 HMCSE FTIC MAC Fall 2017 coursese
+MACHMCSE2017 <-  merge(MAC2017, HMCSE2017, by = "STU_ID", all.y = TRUE)
+# select the columns
+reducedMACHMCSE2017 <- select(MACHMCSE2017, "STU_ID", "Course_CrsCombined","Course_CrsGradeAwarded","Course_StuMajorDesc","Stu_TotalUniversityHoursBegin","Stu_TotalUniversityHours1","Stu_TotalInstHours1","HoursCount1","CourseDWFCount1","HoursDWFCount1","CourseDWFProp1")
+
+```
+
+```{r}
+# need to select all math coursee not just MAC in order to do that select Crs_depart "Course_CrsDepartmentCode"
+MATCRS <- filter(crs, crs$Course_Term =="Fall 2017" & crs$Course_CrsDepartmentCode =="MAT")
+R_MACHMCSE2017 <-  merge(MATCRS, HMCSE2017, by = "STU_ID", all.y = TRUE)
+Agin_MATHMCSE2017 <- select(R_MACHMCSE2017, "STU_ID", "Course_CrsCombined","Course_CrsGradeAwarded","Course_StuMajorDesc","Stu_TotalUniversityHoursBegin","Stu_TotalUniversityHours1","Stu_TotalInstHours1","HoursCount1","CourseDWFCount1","HoursDWFCount1","CourseDWFProp1")
+View(Agin_MATHMCSE2017)
+glimpse(Agin_MATHMCSE2017)
+```
+
+```{r}
+#need to grab the tgP from enr
+Fall2018 <- filter(enr, enr$Stu_Term == "Fall 2018")
+Fall2018TGP <- select(Fall2018, "STU_ID", "Stu_Term",  "Stu_TotalInstGradePoints")
+```
+
+```{r}
+# merge for FTIC2017
+HMCSEftic20171stmath <- merge(Fall2018TGP, Agin_MATHMCSE2017, by = "STU_ID", all.y = TRUE)
+
+```
+```{r}
+plot(HMCSEftic20171stmath$Stu_TotalInstGradePoints)
+```
+```{r}
+glimpse(HMCSEftic20171stmath)
+
+```
+```{r}
+TGP <- HMCSEftic20171stmath$Stu_TotalInstGradePoints
+TCRD <- HMCSEftic20171stmath$Stu_TotalInstHours1
+
+plot01 <- data.frame(TGP, TCRD)
+m1 <- lm(TGP ~TCRD, data = plot01)
+m1
+```
+```{r}
+#one year of CRD and TGP
+summary(m1)
+```
+
+```{r}
+# NA's
+#plot01[!complete.cases(plot01),]
+plot02 <- na.omit(plot01)
+summary(plot02)
+compledata <- data.frame(TGP, TCRD)
+newdata <- na.omit(compledata)
+summary(newdata)
+```
+
+```{r}
+m2 <-  lm(TGP ~ TCRD, data = newdata)
+m2
+summary(m2)
+
+```
+```{r}
+# confident
+coefficients(m2)
+```
+
+```{r}
+confint(m2)
+```
+
+```{r}
+library(ggplot2)
+ggplot(newdata, aes(x=newdata$TCRD, y = newdata$TGP)) +
+geom_point()+
+geom_smooth(method=lm)
+
+
+```
+
+```{r}
+# plot the residuls
+ggplot(m2, aes(x=fitted(m2), y=residuals(m2))) +
+  geom_point()+
+  geom_hline(yintercept = 0, linetype="dashed")
+```
+```{r}
+# need detect the outliners
+outliner_values <- boxplot.stats(newdata$TGP)$out
+```
+```{r}
+# need to stop for the class
+write.csv(HMCSEftic20171stmath, "MAT_1st_2017fticHMCSE_only.csv")
+```
+

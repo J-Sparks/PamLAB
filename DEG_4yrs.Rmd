@@ -1,0 +1,628 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+#four_yrs_UWF <- Uni.hrs_4yrs
+#plot(four_yrs_UWF$Stu_TotalUniversityHours4)
+```
+```{r}
+#table(four_yrs_UWF$Cohort)
+#YES_Four_yrs_UWF <- filter(four_yrs_UWF, four_yrs_UWF$FOURYEARGRAD == 1)
+```
+```{r}
+table(four_yrs_UWF$Cohort, four_yrs_UWF$FOURYEARGRAD)
+
+```
+```{r}
+uwf <- c(1035,1156,1214,1289,1630,1316,1386)
+yes4yrs <- c(277,313,325,276,358,331,433)
+uwf_rate <- cbind(uwf,yes4yrs)
+View(uwf_rate)
+c <-list(yes4yrs/uwf)
+c
+uwf_rate$rate <- c
+```
+```{r}
+# need to degree speed
+# merge all degree data
+deg_granted <- select(deg, "STU_ID","Deg_TermGranted","Deg_Desc")
+deg_granted <- filter(deg_granted,  deg_granted$Deg_Desc == "Bachelor")
+# select only 4_years degree indicatior is 
+Speed_degree <- merge(Uni.hrs_4yrs, deg_granted, by = "STU_ID", all.x = TRUE)
+#df01234 <- select(X4yrsdegree, "STU_ID","Stu_Yr1","","","")
+as <- merge(Speed_degree, df0, by ="STU_ID", all.x = TRUE)
+Speed_deg <- as
+
+write.csv(Speed_deg, "Speed_degree.csv")
+
+
+```
+```{r}
+# change date
+#Speed_deg$Cohort <- paste(Speed_deg$Cohort, "08", sep = ",")
+Speed_deg$Cohort <- substr(Speed_deg$Cohort, 1,4)
+Speed_deg$Cohort <- paste(Speed_deg$Cohort, "08", sep="")
+write.csv(Speed_deg, "TSpeed_degree.csv")
+table(Speed_deg$Deg_TermGranted, Speed_deg$Deg_Desc)
+```
+```{r}
+table(Speed_deg$Cohort, Speed_deg$Deg_Desc)
+```
+```{r}
+table(Speed_deg$Cohort)
+```
+
+```{r}
+table(Speed_deg$Cohort, Speed_deg$FOURYEARGRAD)
+```
+```{r}
+glimpse(Testing01)
+```
+```{r}
+TotalsemesterUWF <- Testing01$Total_semester
+print(TotalsemesterUWF)
+```
+
+```{r}
+library(ggplot2)
+qplot(TotalsemesterUWF, geom="bar", color=I("Blue"),fill=I("Lightblue"),xlab = "Number of Semester",ylab = "Frequency", main="How many semesters for Bachelor Degree UWF"
+      )
+
+#+scale_x_continuous(breaks = 1:4, labels = c("4_years","5_years","6_years","morethan6"))
+```
+
+```{r}
+qplot(Testing01$LE,geom="bar", color=I("Green"),fill=I("Lightgreen"),xlab = "Degree Time",ylab = "Frequency", main="How many years for Bachelor Degree UWF"
+       )
+```
+
+```{r}
+plot(Testing01$Total_semester)
+```
+
+```{r}
+# by cohort
+Cohort <- as.character(Testing01$Cohort)   
+uwfTotalsemester <- Testing01$Total_semester
+frame <- data.frame(Cohort,uwfTotalsemester)
+qplot(uwfTotalsemester, data = frame, geom = "histogram", fill = Cohort, bins = 30, ylab = "Frequency",xlab = "Cohort", main = "How many semeser by Cohort")
+```
+
+```{r}
+qplot(Cohort, uwfTotalsemester, data = frame, geom = c("boxplot","jitter"), fill = Cohort, main = "Total semester Results")
+
+```
+
+```{r}
+qplot(Cohort, uwfTotalsemester, data = frame, geom = "violin",trim=FALSE, fill = Cohort, main = "Total semester Results")
+
+
+```
+```{r}
+# select data Cohort for HMCSE _end
+Testing01_HMCSE <- filter(Testing01, Testing01$Stu_CollegeEnd == "Science and Engineering")
+HMCSEtotalsemester <- Testing01_HMCSE$Total_semester
+HMCSECohort <- as.character(Testing01_HMCSE$Cohort)
+frame01 <- data.frame(HMCSECohort,HMCSEtotalsemester)
+#frame01 <- c(HMCSEtotalsemester, HMCSECohort) not this
+
+qplot(HMCSEtotalsemester, data = frame01, geom = "histogram", fill = HMCSECohort, bins = 30, ylab = "Frequency",xlab = "HMCSE Cohort", main = "How many semeser by HMCSE_Cohort")
+
+
+```
+```{r}
+#HMCSE_college_end_Degree
+library(ggplot2)
+HMCSECohort <- as.factor(frame01$HMCSECohort)
+qplot(HMCSECohort, HMCSEtotalsemester, data = frame01, geom = c("boxplot","jitter"), fill = HMCSECohort, main = "Total semester Results_HMCSE")
+
+
+```
+```{r}
+#how many semester by degree
+deg <- Testing_02$Deg_Desc
+deg_gran <- Testing_02$Total_semester
+deg_coll_end <- Testing_02$coll
+frame02_se <- data.frame(deg,deg_gran,deg_coll_end)
+ggplot(data=frame02_se, aes(x=deg_gran))+geom_histogram(aes(fill=deg),color="Black",bins = 30)+facet_grid(deg_coll_end~.)
+
+
+
+```
+
+```{r}
+# logistic Regression
+# manage the DATA
+
+# FTIC 2008-2013 (2014 effect on)
+FTICdata <- filter(Testing01, Testing01$Cohort <= 201308)
+
+```
+
+```{r}
+#using Testing01 data and creat 1st year UWF Credit hours
+Testing01$UWFcrd_1 <- (Testing01$Stu_TotalUniversityHours1 - Testing01$Stu_TotalUniversityHoursBegin)
+frame02 <- data.frame(Testing01$Stu_CollegeBegin, Testing01$UWFcrd_1)
+colnames(frame02) <- c("coll","uwfcrd")
+glimpse(frame02)
+
+```
+
+```{r}
+# first year UWF credit hours_beginHMCSE
+ggplot(data=frame02, aes(x=coll,y=uwfcrd)) + geom_jitter(aes(color=coll))+ geom_boxplot(aes(fill=coll),alpha=0.5)
+#write.csv(Testing01,"Testing_02.csv")
+```
+
+```{r}
+#data name TESTing02 HMSCE begin
+#coll <- Testing_02$coll
+#uwfcrd <- Testing_02$UWFcrd_1
+#frame02_01 <- data.frame(coll, uwfcrd)
+ggplot(data=frame02_01, aes(x=coll,y=uwfcrd)) + geom_jitter(aes(color=coll))+ geom_boxplot(aes(fill=coll), alpha=0.5)
+
+#HMCSE
+#HMCSEframe <- filter(frame02_01, frame02_01$coll=="HMCSE")
+
+```
+```{r}
+#filter have a degree
+newdata_deg <- filter(Testing_02,Testing_02$Deg_Desc=="Bachelor")
+Bdeg_coll_begin <- newdata_deg$coll
+Bdeg_UWF_totalseme <- newdata_deg$Total_semester
+Bdeg_uwf_crd_1st <- newdata_deg$UWFcrd_1
+Bdegframe <- data.frame(Bdeg_coll_begin,Bdeg_UWF_totalseme,Bdeg_uwf_crd_1st)
+
+
+
+
+```
+```{r}
+#college end
+Bdeg_coll_end <- newdata_deg$Stu_CollegeEnd
+Bdeg_UWF_totalseme <- newdata_deg$Total_semester
+Bdeg_uwf_crd_1st <- newdata_deg$UWFcrd_1
+Bdegframe <- data.frame(Bdeg_coll_end,Bdeg_UWF_totalseme,Bdeg_uwf_crd_1st)
+
+ggplot(data=Bdegframe, aes(x=Bdeg_coll_end,y=Bdeg_UWF_totalseme)) + geom_jitter(aes(color=Bdeg_coll_end))+ geom_boxplot(aes(fill=Bdeg_coll_end), alpha=0.5)
+```
+
+```{r}
+#frame02_01$uni2 <- (Testing_02$Stu_TotalUniversityHours2 - Testing_02$Stu_TotalUniversityHours1)
+
+
+ggplot(data=frame02_01, aes(x=uwfcrd))+geom_histogram(aes(fill=coll),color="Black",bins = 20)+facet_grid(coll~.)
+```
+```{r}
+#2nd year uwf hrs
+frame02_01$uni2 <- (Testing_02$Stu_TotalUniversityHours2 - Testing_02$Stu_TotalUniversityHours1)
+frame02_01_na <- filter(frame02_01, frame02_01$uni2>0)
+#frame02_01.na.omit <- na.omit(frame02_01)
+ggplot(data=frame02_01_na, aes(x=uni2))+geom_histogram(aes(fill=coll),color="Black",bins = 20)+facet_grid(coll~.)
+
+```
+```{r}
+
+
+```
+
+```{r}
+# Prior hrs for HMCSE
+newdata_hmcse_prior <- Testing_02
+#glimpse(newdata_hmcse_prior)
+prior_hrs <- Testing_02$Stu_TotalUniversityHoursBegin
+Coll_HMCSE <- Testing_02$coll
+frame_prior <- data.frame(prior_hrs,Coll_HMCSE)
+#glimpse(frame_prior)
+ggplot(data=frame_prior, aes(x=prior_hrs))+geom_histogram(aes(fill=prior_hrs),color="Black",bins = 20)+facet_grid(Coll_HMCSE~.)
+
+```
+
+```{r}
+# need to compare 4 years of coll crd using MATplot
+unicrd01 <- Testing_02
+coll_end <- Testing_02$Stu_CollegeEnd
+ 
+uni01 <- Testing_02$Stu_TotalUniversityHours1
+uni02 <- Testing_02$Stu_TotalUniversityHours2
+uni03 <- Testing_02$Stu_TotalUniversityHours3
+uni04 <- Testing_02$Stu_TotalUniversityHours4
+frame02_uni <- data.frame(coll_end,uni01,uni02,uni03,uni04)
+frame02_uni$no <- (frame02_uni$uni04 - frame02_uni$uni01)
+frame03_na <- filter(frame02_uni,frame02_uni$no > 0)
+
+#treansforsing data
+#newtable <- t(frame03_na)
+#print(newtable)
+#colnames(newtable)
+
+#matplot(frame03_na,type="b",pch=15:18,col=2:5)
+#glimpse(frame02_uni)
+#matplot(frame02_uni, type="b",pch=15:18,col=2:5,xlab="college",ylab="UniversityCredit(hours)",axes=FALSE,main="University Hours per Year")
+
+```
+
+```{r}
+#filter for HMCSE_begin & LE
+Testing11 <- na.omit(Testing01)
+glimpse(Testing11)
+```
+
+```{r}
+#4years of matplot for UWF FTIC 2013 only
+hmcse_4years_crd <- filter(Testing11, Testing11$Cohort == 201308) #595 FTIC earned degree
+hmcse_uwf_4years_crd <- filter(hmcse_4years_crd,hmcse_4years_crd$Stu_CollegeBegin=="Science and Engineering")
+UWFuni01 <- hmcse_4years_crd$Stu_TotalUniversityHours1
+UWFuni02 <- hmcse_4years_crd$Stu_TotalUniversityHours2
+UWFuni03 <- hmcse_4years_crd$Stu_TotalUniversityHours3
+UWFuni04 <- hmcse_4years_crd$Stu_TotalUniversityHours4
+deg_term <- hmcse_4years_crd$LE
+frame_UWF11 <- data.frame(UWFuni01,UWFuni02,UWFuni03,UWFuni04,deg_term)
+ggplot(data=frame_UWF11, aes(x=UWFuni01))+geom_histogram(aes(fill=deg_term),color="Black",bins = 20)+facet_grid(deg_term~.)
+
+
+
+```
+```{r}
+ggplot(data=frame_UWF11, aes(x=UWFuni02))+geom_histogram(aes(fill=deg_term),color="Black",bins = 20)+facet_grid(deg_term~.)
+
+```
+
+```{r}
+ggplot(data=frame_UWF11, aes(x=UWFuni03))+geom_histogram(aes(fill=deg_term),color="Black",bins = 20)+facet_grid(deg_term~.)
+
+
+```
+
+```{r}
+ggplot(data=frame_UWF11, aes(x=UWFuni04))+geom_histogram(aes(fill=deg_term),color="Black",bins = 20)+facet_grid(deg_term~.)
+
+
+```
+```{r}
+#need to filter for new data set
+HMCSEuni01 <- hmcse_uwf_4years_crd$Stu_TotalUniversityHours1
+HMCSEuni02 <- hmcse_uwf_4years_crd$Stu_TotalUniversityHours2
+HMCSEuni03 <- hmcse_uwf_4years_crd$Stu_TotalUniversityHours3
+HMCSEuni04 <- hmcse_uwf_4years_crd$Stu_TotalUniversityHours4
+HMCSELE <- hmcse_uwf_4years_crd$LE
+frame2013 <- data.frame(HMCSEuni01, HMCSEuni02,HMCSEuni03,HMCSEuni04, HMCSELE)
+ggplot(data=frame2013, aes(x=HMCSEuni01))+geom_histogram(aes(fill=HMCSELE),color="Black",bins = 20)+facet_grid(HMCSELE~.)
+
+
+
+
+
+```
+```{r}
+ggplot(data=frame2013, aes(x=HMCSEuni02))+geom_histogram(aes(fill=HMCSELE),color="Black",bins = 20)+facet_grid(HMCSELE~.)
+
+
+```
+
+```{r}
+ggplot(data=frame2013, aes(x=HMCSEuni03))+geom_histogram(aes(fill=HMCSELE),color="Black",bins = 20)+facet_grid(HMCSELE~.)
+
+```
+
+```{r}
+ggplot(data=frame2013, aes(x=HMCSEuni04))+geom_histogram(aes(fill=HMCSELE),color="Black",bins = 20)+facet_grid(HMCSELE~.)
+
+```
+```{r}
+HMCSEuniend <- hmcse_uwf_4years_crd$Stu_TotalUniversityHoursEnd
+frame2013end <- data.frame(HMCSEuniend, HMCSELE)
+ggplot(data=frame2013, aes(x=HMCSEuniend))+geom_histogram(aes(fill=HMCSELE),color="Black",bins = 20)+facet_grid(HMCSELE~.)
+
+```
+
+```{r}
+# designe the data set HMCSE not changed majors data Testing_02
+Testing03_HMCSE <- filter(Testing_02, Testing_02$coll == "HMCSE")#4426
+write.csv(Testing03_HMCSE,"Testing03_HMCSCE.csv")
+#mydata is Testing03_HMCSE
+
+```
+```{r}
+# filter b_degree
+B_deg_hmcse_only <- filter(Testing03_HMCSCE, Testing03_HMCSCE$Deg_Desc =="Bachelor") #1262 datapoint UWF HMCSE_deg
+#filter for the late group
+Late_B_deg_hmcse <- filter(B_deg_hmcse_only, B_deg_hmcse_only$LE == "LATE" & B_deg_hmcse_only$coll_end =="1")#342
+Early_B_deg_hmcse <- filter(B_deg_hmcse_only, B_deg_hmcse_only$LE == "EARLY" & B_deg_hmcse_only$coll_end =="1")#286
+All_B_deg_hmcse <- filter(B_deg_hmcse_only, B_deg_hmcse_only$coll_end=="1") #688
+four_deg_hmcse <- filter(B_deg_hmcse_only,B_deg_hmcse_only$FOURYEARGRAD=="1") #632 #0.1427(4yrs)
+UWF_4yrs <- filter(as, as$FOURYEARGRAD=="1")#2612#UWF 4 years 0.1865
+
+
+```
+```{r}
+# for LATE HMCSE all cohort
+DF_hmcse01 <- select(All_B_deg_hmcse, "STU_ID","Stu_TotalUniversityHoursBegin","Stu_TotalUniversityHours1","Stu_TotalUniversityHours2","Stu_TotalUniversityHours3","Stu_TotalUniversityHours4","Total_semester", "LE")
+#more column
+DF_more <- select(M4, "STU_ID","Cohort","GPA_HIGHSCHOOL","HoursDWFCount1","HoursDWFCount2","HoursDWFCount3","HoursDWFCount4","TESTSCORE")
+Testing04 <- merge(DF_hmcse01, DF_more, by = "STU_ID", all.x = TRUE)
+#is.na(Testing04) no
+
+
+```
+
+```{r}
+# ggplot for by semester
+#data is Testing04
+Semester_HMCSE <- Testing04$Total_semester
+Deg_Time <- as.factor(Testing04$LE)
+
+Semester_HMCSE <- as.numeric(Semester_HMCSE)
+seme_hmcse <- data.frame(Semester_HMCSE, Deg_Time)
+
+ggplot(data=seme_hmcse, aes(x=Semester_HMCSE))+geom_histogram(aes(fill=Deg_Time),color="Black",bins = 20)+facet_grid(Deg_Time~.)
+
+
+```
+```{r}
+# by year uni.hors by Deg_Time
+Stay_unio1 <- Testing04$Stu_TotalUniversityHours1
+Stay_unio2 <- Testing04$Stu_TotalUniversityHours2
+Stay_unio3 <- Testing04$Stu_TotalUniversityHours3
+Stay_unio4 <- Testing04$Stu_TotalUniversityHours4
+Stay_deg_time <- Testing04$LE
+Stay_data <- data.frame(Stay_unio1, Stay_unio2, Stay_unio3, Stay_unio4, Stay_deg_time)
+
+ggplot(data=Stay_data, aes(x=Stay_unio1)) + geom_histogram(aes(fill=Stay_deg_time), color="Black", bins=20) + facet_grid(Stay_deg_time~.)
+
+```
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_unio2)) + geom_histogram(aes(fill=Stay_deg_time), color="Black", bins=20) + facet_grid(Stay_deg_time~.)
+
+```
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_unio3)) + geom_histogram(aes(fill=Stay_deg_time), color="Black", bins=20) + facet_grid(Stay_deg_time~.)
+
+
+```
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_unio4)) + geom_histogram(aes(fill=Stay_deg_time), color="Black", bins=20) + facet_grid(Stay_deg_time~.)
+
+```
+```{r}
+Stay_DWFo1 <- Testing04$HoursDWFCount1
+Stay_DWFo2 <- Testing04$HoursDWFCount2
+Stay_DWFo3 <- Testing04$HoursDWFCount3
+Stay_DWFo4 <- Testing04$HoursDWFCount4
+Stay_deg_time <- Testing04$LE
+Stay_data <- data.frame(Stay_DWFo1, Stay_DWFo2, Stay_DWFo3, Stay_DWFo4, Stay_deg_time)
+
+ggplot(data=Stay_data, aes(x=Stay_DWFo1)) + geom_histogram(aes(fill=Stay_deg_time), color="Black", bins=20) + facet_grid(Stay_deg_time~.)
+
+
+```
+
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_DWFo2)) + geom_histogram(aes(fill=Stay_deg_time), color="Black", bins=20) + facet_grid(Stay_deg_time~.)
+
+
+```
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_DWFo3)) + geom_histogram(aes(fill=Stay_deg_time), color="Black", bins=20) + facet_grid(Stay_deg_time~.)
+
+```
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_DWFo4)) + geom_histogram(aes(fill=Stay_deg_time), color="Black", bins=20) + facet_grid(Stay_deg_time~.)
+
+```
+```{r}
+#DWF boxplot
+ggplot(data=Stay_data, aes(x=Stay_deg_time,y=Stay_DWFo1)) + geom_jitter(aes(color=Stay_deg_time))+ geom_boxplot(aes(fill=Stay_deg_time), alpha=0.5)
+
+```
+
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_deg_time,y=Stay_DWFo2)) + geom_jitter(aes(color=Stay_deg_time))+ geom_boxplot(aes(fill=Stay_deg_time), alpha=0.5)
+
+
+```
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_deg_time,y=Stay_DWFo3)) + geom_jitter(aes(color=Stay_deg_time))+ geom_boxplot(aes(fill=Stay_deg_time), alpha=0.5)
+
+```
+
+```{r}
+ggplot(data=Stay_data, aes(x=Stay_deg_time,y=Stay_DWFo4)) + geom_jitter(aes(color=Stay_deg_time))+ geom_boxplot(aes(fill=Stay_deg_time), alpha=0.5)
+
+```
+```{r}
+#qplot for DWF
+qplot(Stay_DWFo1,data=Stay_data,geom="histogram", fill= Stay_deg_time, bins=40, ylab = "frquency", xlab="DWF Hours", main = "Average DWF Hours _ 1st year_HMCSE_Stayed")
+```
+```{r}
+
+qplot(Stay_DWFo2,data=Stay_data,geom="histogram", fill= Stay_deg_time, bins=40, ylab = "frquency", xlab="DWF Hours", main = "Average DWF Hours _ 2nd year_HMCSE_Stayed")
+```
+```{r}
+qplot(Stay_DWFo3,data=Stay_data,geom="histogram", fill= Stay_deg_time, bins=40, ylab = "frquency", xlab="DWF Hours", main = "Average DWF Hours _ 3rd year_HMCSE_Stayed")
+```
+
+```{r}
+qplot(Stay_DWFo4,data=Stay_data,geom="histogram", fill= Stay_deg_time, bins=40, ylab = "frquency", xlab="DWF Hours", main = "Average DWF Hours _ 4th year_HMCSE_Stayed")
+```
+```{r}
+#qplot for density
+qplot(Stay_DWFo4, data= Stay_data, geom="density", size=I(2),color=Stay_deg_time, linetype=Stay_deg_time, ylab="Density", xlab="DWF_four _year", main= "DWF_HMCSE_stayed")
+```
+```{r}
+#histogram DWF
+qplot(Stay_data$Stay_DWFo4, geom="bar", color=I("Blue"), fill=I("Lightblue"), xlab ="DWF Hours", ylab="frequency", main="DWF_four year_hmcse")
+```
+
+```{r}
+#DWF scatter plot (DWF hours and (graduated semesters/12)*100. round 2
+DWF_data <- Testing04
+DWF_data$y <- round((DWF_data$Total_semester/12)*100, digits = 2)
+
+DWF_Hours_4years <- DWF_data$HoursDWFCount4
+Semester_Rate <- DWF_data$y
+DWF_LM <- data.frame(DWF_Hours_4years,Semester_Rate)
+qplot(DWF_Hours_4years,Semester_Rate,geom=c("point","line"),color=I("Red"))
+
+
+```
+
+
+
+```{r}
+
+#smoothing Lines
+qplot(DWF_Hours_4years,Semester_Rate,geom=c("point","smooth"),size=x,color=I("DarkGreen"))
+#you can see the relationship between DWF and semester rate
+
+
+```
+
+```{r}
+#linear regression
+DWF_model01 <- lm(Semester_Rate~., data = DWF_LM)
+summary(DWF_model01)
+
+
+
+```
+
+```{r}
+#linear Regression data partition
+set.seed(1234)
+ind <- sample(2, nrow(DWF_LM), replace=T, prob=c(0.8,0.2))
+train <- DWF_LM[ind==1,]
+test <- DWF_LM[ind==2,]
+```
+
+```{r}
+DWF_model02 <- lm(Semester_Rate~., data=train)
+summary(DWF_model02)
+```
+```{r}
+coefficients(DWF_model01)
+
+```
+```{r}
+confint(DWF_model01)
+```
+
+```{r}
+predict(DWF_model01, data.frame(DWF_Hours_4years=c(3:12)))#13semester/12=108.3,12/12=100.00
+```
+```{r}
+#ggplot
+ggplot(DWF_data, aes(x=DWF_Hours_4years,y=Semester_Rate))+
+  geom_point()+
+  geom_smooth(method = lm)
+  
+
+
+```
+
+```{r}
+#plotting residuals
+ggplot(DWF_data, aes(x=fitted(DWF_model01),y=residuals(DWF_model01)))+
+  geom_point()+
+  geom_hline(yintercept = 0, linetype="dashed")
+  
+```
+
+```{r}
+# equation
+#Semester_rate =  95.387871 + 1.238705(DWF_hours)
+```
+
+```{r}
+#using 4 years DWF for semester
+DWF_01 <- DWF_data$HoursDWFCount1
+DWF_02 <- DWF_data$HoursDWFCount2
+DWF_03 <- DWF_data$HoursDWFCount3
+DWF_04 <- DWF_data$HoursDWFCount4
+y4 <- DWF_data$y
+DWF_4year_all <- data.frame(DWF_01, DWF_02,DWF_03,DWF_04,y4 )
+
+```
+
+```{r}
+#last years is the best prediction
+```
+
+
+
+```{r}
+#mulitple linear regression
+deg_rate <- select(DWF_data,"Stu_TotalUniversityHoursBegin","GPA_HIGHSCHOOL", "Stu_TotalUniversityHours4",  "HoursDWFCount4","TESTSCORE","y")
+pmo1 <- lm(y~., data=deg_rate)
+summary(pmo1)
+```
+```{r}
+#looking for MAC course for ID's
+deg_rate_id <- select(DWF_data, "STU_ID","Stu_TotalUniversityHoursBegin", "Stu_TotalUniversityHours4",  "HoursDWFCount4","y")
+DWF_id <- select(deg_rate_id, "STU_ID")#688
+DWF_id_mac <- data.frame(deg_rate_id$STU_ID)
+write.csv(DWF_id_mac,"MAC_grade.csv")
+DWF_crs <- merge(crs, DWF_id, by = "STU_ID", all.x = TRUE)
+DWF_crs_MAC <- filter(DWF_crs, DWF_crs$Course_CrsPrefix =="MAC")#31432
+DWF_crs_MAC_2311 <- filter(DWF_crs_MAC, DWF_crs_MAC$Course_CrsNumber==2311)#4732
+#summary(DWF_crs_MAC_2311)
+table01 <- table(DWF_crs_MAC_2311$Course_Term, DWF_crs_MAC_2311$Course_CrsGradeAwarded)
+str(table01)
+```
+```{r}
+table01.table.df <- as.data.frame(table01)
+str(table01.table.df)
+View(table01.table.df)
+```
+
+```{r}
+#Adding University hours
+DWF_data$Uni_hours <- DWF_data$Stu_TotalUniversityHours4
+DWF_model03 <- lm(Semester_Rate~ DWF_Hours_4years+Uni_hours, data = DWF_data)
+summary(DWF_model03)
+#ggplot(DWF_data, aes(x=DWF_Hours_4years,y=Semester_Rate))+
+  #geom_point()+
+  #geom_smooth(method = lm)
+```
+
+```{r}
+coefficients(DWF_model03)
+```
+```{r}
+confint(DWF_model03)
+```
+
+```{r}
+#correlationpairs
+#library(psych)
+co_data <- select(DWF_data, "Stu_TotalUniversityHours4", "HoursDWFCount4","LE")
+pairs.panels(co_data[1:2], gap=0, bg=c("green","red")[co_data$LE], pch=21)
+
+```
+
+
+```{r}
+
+ggplot(DWF_data, aes(x=Uni_hours,y=Semester_Rate))+
+  geom_point()+
+  geom_smooth(method = lm)
+
+```
+
+```{r}
+#ggplot for model03
+ggplot(DWF_data, aes(x=fitted(DWF_model03),y=residuals(DWF_model03)))+
+  geom_point()+
+  geom_hline(yintercept = 0, linetype="dashed")
+
+
+```
+
