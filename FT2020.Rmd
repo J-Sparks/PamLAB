@@ -1,0 +1,250 @@
+---
+title: "FTIC 2020"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readr)
+library(dplyr)
+tab20192020_CRS_prop <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/FT2020_comparison/tab20192020_CRS_prop.csv")
+setwd("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/Data_IR_2020")
+meanGPA20192020 <- read_csv("meanGPA20192020.csv", 
+    col_types = cols(X1 = col_skip()))
+TierGPA20192020 <- read_csv("TierGPA20192020.csv", 
+    col_types = cols(X1 = col_skip()))
+
+CSECRSGrade20192020 <- read_csv("CSECRSGrade20192020.csv", 
+    col_types = cols(X1 = col_skip()))
+
+CSE2020 <- read_csv("CSE2020.csv", 
+    col_types = cols(X1 = col_skip()))
+
+
+
+CSE2019 <- read_csv("CSE2019.csv", 
+    col_types = cols(X1 = col_skip()))
+CSEALL1stGPA <- read_csv("CSEALL1stGPA.csv", 
+    col_types = cols(X1 = col_skip()))
+
+cseallGPARank <-  read_csv("cseallGPARank.csv", 
+    col_types = cols(X1 = col_skip()))
+
+df20192020departGPA <-  read_csv("df20192020departGPA.csv", 
+    col_types = cols(X1 = col_skip())) %>% arrange(-count2020)
+
+tab2020_prop_Grds <-  read_csv("tab2020_prop_Grds.csv", 
+    col_types = cols(X1 = col_skip())) 
+
+tab2020_add_Grds <-  read_csv("tab2020_add_Grds.csv", 
+    col_types = cols(X1 = col_skip())) 
+
+
+listCRS_grads_cut <-  read_csv("listCRS_grads_cut.csv", 
+    col_types = cols(X1 = col_skip())) #2020
+
+listCRS_grads_cut <-  read_csv("listCRS_grads_cut.csv", 
+    col_types = cols(X1 = col_skip())) #2020
+
+tab2019_add_Grds_cut <-  read_csv("tab2019_add_Grds_cut.csv", 
+    col_types = cols(X1 = col_skip())) #2019
+
+```
+
+
+Column {.tabset .tabset-fade data-width=650}
+-----------------------------------------------------------------------
+
+
+### 1st GPA by APR 2.00 & 2.77
+
+```{r}
+library(plotly)
+library(dplyr)
+fig3 <- cseallGPARank
+fig3$Cohort <- as.factor(fig3$Cohort)
+
+fig3 <- fig3 %>% count(Cohort, APRGPA)
+fig3 <- fig3 %>% plot_ly(x= ~Cohort, y=~n, color=~APRGPA)
+fig3
+```
+
+
+### Top 25 Courses for Increased DWF Rate and more than 6 DWF counts per Course Name
+
+```{r}
+library(plotly)
+library(dplyr)
+library(ggplot2)
+
+tab20192020_CRS_prop$DWFRateDiff <- round(tab20192020_CRS_prop$CRSProp2020-tab20192020_CRS_prop$CRSProp2019, 2)
+tab20192020fig1 <- tab20192020_CRS_prop %>% filter(CRSGrade2019=="DWF" & DWFRateDiff>0 & Count2020>=6) %>% na.omit()
+fig1 <- plot_ly(tab20192020fig1, x=~CRSName2019, y=~CRSProp2020, type=~'bar',name='DWF 2020')
+ fig1 <- fig1 %>%  add_trace(y=~CRSProp2019, name='DWF 2019') 
+ fig1 <- fig1 %>%  layout(yaxis = list(title="Proportion of DWF"), xaxis=list(title="Course Name 2020"),barmode='group')
+fig1
+```
+
+### Failed Grades by Increased DWF Rate CoursName (FT20 vs.FT19)
+
+```{r}
+library(plotly)
+
+mydiffDWF <- tab20192020_CRS_prop[(!is.na(tab20192020_CRS_prop$DWFRateDiff>0)& tab20192020_CRS_prop$CRSGrade2019=="DWF"),"CRSName2019"] #172crs
+listCRS_grads_cutDWF <- merge(mydiffDWF, listCRS_grads_cut, by.x = "CRSName2019", by.y="CRSName2020", all.x = T)
+listCRS_grads_cutDWF <- listCRS_grads_cutDWF[!is.na(listCRS_grads_cutDWF$CRSGrade2020),]
+colnames(listCRS_grads_cutDWF) <- c("CRSName2020","CRSGrade2020","Count2020")
+# merge with 2020 and 2019
+listCRS_grads_cutDWF20192020 <- merge(listCRS_grads_cutDWF,tab2019_add_Grds_cut, by.x = c("CRSName2020","CRSGrade2020"), by.y=c("CRSName2019","CRSGrade2019"), all.x = T) %>% na.omit() %>%  mutate(Diffcount=Count2020-Count2019) %>% 
+  filter(CRSGrade2020=="W"|CRSGrade2020=="D"|CRSGrade2020=="D+"|CRSGrade2020=="F"|CRSGrade2020=="I"|CRSGrade2020=="NF") %>% filter(Diffcount>0)
+# remove sum for each grades
+figS <- listCRS_grads_cutDWF20192020 %>% group_by(CRSName2020) %>% plot_ly( x= ~CRSName2020, y= ~Diffcount, color= ~CRSGrade2020, type= "bar") %>% layout(yaxis=list("Counts"), barmode="stack") #56 crs name
+figS
+```
+
+
+### Grades Comparison
+```{r}
+library(plotly)
+library(dplyr)
+
+ CSE2019fig2 <- CSE2019 %>% select( A_GRADE_AWARDED ) %>% group_by(A_GRADE_AWARDED) %>% summarise(GradeCount=n()) %>% as.data.frame()
+ CSE2020fig2 <- CSE2020 %>% select( B_GRADE_AWARDED ) %>% group_by(B_GRADE_AWARDED) %>% summarise(GradeCount=n()) %>% as.data.frame()
+
+ CSE20192020fig2 <- merge(CSE2019fig2,CSE2020fig2, by.x="A_GRADE_AWARDED", by.y="B_GRADE_AWARDED", all = T)
+ colnames(CSE20192020fig2) <- c("CRSGrades","Count2019","Count2020")
+ 
+fig2 <- plot_ly(CSE20192020fig2, x = ~CRSGrades, y = ~Count2020, type = 'bar', name = 'Grades 2020', marker = list(color = 'rgb(49,130,189)'))
+fig2 <- fig2 %>% add_trace(y = ~Count2019, name = 'Grades 2019', marker = list(color = 'rgb(204,204,204)'))
+fig2 <- fig2 %>% layout(xaxis = list(title = "FT2020 vs. FT2019 Grades Counts", tickangle = -45),
+         yaxis = list(title = "Grades Counts"),
+         margin = list(b = 100),
+         barmode = 'group')
+fig2
+
+```
+
+
+
+### Proportion of GPA Rank from 2015 to 2020
+
+```{r}
+library(DT)
+tab1 <- table(cseallGPARank$Cohort,cseallGPARank$APRGPA) 
+tab11 <- as.data.frame(tab1)
+#tab3 <- addmargins(tab1)
+tab2 <- round(prop.table(tab1, margin = 1),4) 
+tab22 <- as.data.frame(tab2)
+tab4 <- merge(tab11, tab22, by=c("Var1","Var2"), all=T)
+colnames(tab4) <- c("Cohort","GPARank","Count","Prop")
+datatable(tab4 , extensions = "Buttons",caption = "1st GPA Rank from 2015-2020",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+```
+
+### Data table - Proportion and Counts of Pass/Fail by Course Name
+
+```{r}
+library(DT)
+tab20192020_CRS_prop[tab20192020_CRS_prop$CRSName2019=="23-Mar","CRSName2019"] <- "MAR3023"
+tab20192020_CRS_prop$DWFRateDiff <- round(tab20192020_CRS_prop$DWFRateDiff, 2)
+tab20192020_CRS_prop1 <- tab20192020_CRS_prop[tab20192020_CRS_prop$CRSName2019 != 410228,] %>%group_by(CRSName2019)  %>% select(-1)
+colnames(tab20192020_CRS_prop1) <- c("CRSName","CRSGrade2019","CRSProp2019","Count2019","CRSProp2020","Count2020","DiffProp")
+datatable(tab20192020_CRS_prop1, extensions = "Buttons",caption = "Proportion of Pass/Fail Data Table",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+```
+
+### DWF RATE by Course Sections
+
+```{r}
+library(dplyr)
+library(stringr)
+CSE2020$DWF <- sapply(CSE2020[,6], function(x) replace(x, x %in% c("D","D+","W","F","NF","I","I*"), "failed"))
+CSE2020 <- CSE2020 %>% mutate(DWF1 = ifelse(DWF=="failed","DWF","Pass"))
+CSE2020SNR <- CSE2020 %>% filter(str_detect(B_COURSE_NAME, "COP2334|MAC1147|MAC2311"))#|MAC1147|MAC2311
+CSE2020SNRtab <- table(CSE2020SNR$B_COURSE_NAME,CSE2020SNR$B_CRS_SECTN_NBR)
+CSE2020SNRtabmarg <- addmargins(CSE2020SNRtab)
+ tabCSE2020IDSecN <-  table(CSE2020$B_CRS_SECTN_NBR,CSE2020$DWF1) 
+ 
+ tabCSE2020IDSecNCount <- CSE2020 %>% group_by(B_CRS_SECTN_NBR) %>% summarise(CountSection2020=n())
+ 
+propDWF <- round(prop.table(table(CSE2020$B_CRS_SECTN_NBR,CSE2020$DWF1),1),2) %>% as.data.frame.matrix()
+propDWF$B_CRS_SECTN_NBR <- rownames(tabCSE2020IDSecN)
+ CSE2020DWFRateSecNum <- merge(propDWF, CSE2020[,3:4], by="B_CRS_SECTN_NBR",all=T)
+
+ 
+#CSE2020DWFRateSecNumC <- CSE2020DWFRateSecNum %>% group_by(B_CRS_SECTN_NBR) %>% summarise(Count2020=n())
+AAA <- CSE2020DWFRateSecNum[!duplicated(CSE2020DWFRateSecNum$B_CRS_SECTN_NBR),]
+ CSE2020DWFRateSecNumTC <- merge(AAA, tabCSE2020IDSecNCount, by="B_CRS_SECTN_NBR",all=T)
+ 
+CSE2020DWFRateSecNumRe <- CSE2020DWFRateSecNumTC %>% select("CRSName2020"=B_COURSE_NAME,"SECTN_NBR"=B_CRS_SECTN_NBR,"DWF_Rate"=DWF,"PASS_Rate"=Pass, "TotalCount2020"=CountSection2020)
+datatable(CSE2020DWFRateSecNumRe, extensions = "Buttons",caption = "DWF RATE by Sections",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+
+```
+
+
+
+
+Column {.tabset .tabset-fade }
+-----------------------------------------------------------------------
+
+### Mean 1st Fall GPA by college (FT20 vs. FT19)
+
+```{r}
+library(DT)
+meanGPA20192020 <- meanGPA20192020 %>% mutate(diffGPA= round(meanGPA2020-meanGPA2019,2), diffcount=count2020-count2019)
+datatable(meanGPA20192020, extensions = "Buttons",caption = "Mean GPA Comparison",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+
+```
+
+### Mean 1st Fall GPA by Departments (FT20 vs. FT19)
+
+```{r}
+library(DT)
+
+datatable(df20192020departGPA , extensions = "Buttons",caption = "Departments GPA Comparison",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+
+```
+
+
+### Mean GPA by Tiers (FT20 vs. FT19)
+
+```{r}
+
+library(DT)
+TierGPA20192020 <- TierGPA20192020 %>% mutate(diffGPA= round(TierGPA2020-TierGPA2019,2), diffcount=count2020-count2019)
+datatable(TierGPA20192020, extensions = "Buttons",caption = "Tier GPA Comparison",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+
+
+
+```
+
+### Overall mean 1st GPA from 2015-2020
+
+```{r}
+datatable(CSEALL1stGPA , extensions = "Buttons",caption = "1st GPA from 2015-2020",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+```
+
+
+### summary
+
+* Overall the mean of 1st Fall GPA for FTIC 2020 is `r CSEALL1stGPA[CSEALL1stGPA$Cohort==20202021, "mean1stGPA"]`.
+* The trends of 1st Fall GPA from 2015 to 2020 is `r CSEALL1stGPA$mean1stGPA` and the difference GPA from previous year is `r 3.05-2.91 `
+* Number of Courses for 2019: `r length(CSE2019$A_UNIV_ROW_ID)` and for 2020: `r length(CSE2020$B_UNIV_ROW_ID)`
+* The difference of course enrollments is `r 5227-5309`.
+* The Proportion of Above GPA 2.77 for the last six years are: `r tab4[tab4$GPARank=="Above2.77","Prop"]`.
+
