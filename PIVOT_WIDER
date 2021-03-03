@@ -1,0 +1,8 @@
+# using tidyr 
+wide_APR <- tempAPR_up2019 %>% group_by(codeHS_CEEB, APR) %>% 
+  summarise(APR_HSNAME = n()) %>% 
+  tidyr::pivot_wider( names_from = APR, values_from= c("APR_HSNAME")) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(SumHSNAME=(Yes+No)) %>% 
+  mutate(APR_HSNAME=Yes/SumHSNAME) %>%  arrange(-APR_HSNAME)# 62 HSNMAE has 0% APR so, replaced 0.2 the min value
+wide_APR[wide_APR$APR_HSNAME==0.00, "APR_HSNAME"] <- 0.20000 
