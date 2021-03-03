@@ -1,0 +1,480 @@
+---
+title: "Admitted 2021 FTIC - Predicting APR"
+author: "PAM Lab -  UWF"
+date: "02-26-2021"
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+  word_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r, setup, include=FALSE}
+require(mosaic)   # Load additional packages here 
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+
+
+#final_admission <- readRDS("./final_admissionFTIC_model.rds")
+library(htmlTable)
+library(dplyr)
+library(readr)
+all_vari_PREDICTION <- read_csv("v5all_vari_PREDICTION.csv") %>% # clean the final dataset and complete this report
+        mutate(College=ifelse(CURRICULUM_COLL=="UNA","UNA", # college
+                                                               ifelse(CURRICULUM_COLL=="A","HMCSE",
+                                                                ifelse(CURRICULUM_COLL=="P","CEPS",
+                                                                 ifelse(CURRICULUM_COLL=="H","CASSH",
+                                                                    ifelse(CURRICULUM_COLL=="M","UKCOH",
+                                                                      ifelse(CURRICULUM_COLL=="B","COB","UNA")))))))
+```
+
+```{r eval=FALSE, include=FALSE}
+library(readxl)
+V1_updated_tier_pred_incoming_class_02_22_2021 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/V1-updated_tier_pred_incoming_class_02_22_2021.xlsx", 
+    sheet = "updated_tier_pred_incoming_clas")
+V2_updated_tier_pred_incoming_class_02_22_2021 <- V1_updated_tier_pred_incoming_class_02_22_2021[!is.na(V1_updated_tier_pred_incoming_class_02_22_2021$HS_OFFER_GPA),] %>% 
+  filter(HS_OFFER_GPA != 0) %>% 
+  mutate(codeHSGPA=ifelse(HS_OFFER_GPA<3.1000,"GPA<3.10",
+                          ifelse(HS_OFFER_GPA<3.20,"GPA<3.20",
+                                 ifelse(HS_OFFER_GPA<3.30,"GPA<3.30",
+                                        ifelse(HS_OFFER_GPA<3.40,"GPA<3.40",
+                                               ifelse(HS_OFFER_GPA<3.50,"GPA<3.50",
+                                                      ifelse(HS_OFFER_GPA<3.60,"GPA<3.60",
+                                                             ifelse(HS_OFFER_GPA<3.70,"GPA<3.70",
+                                                                    ifelse(HS_OFFER_GPA<3.80,"GPA<3.80",
+                                                                           ifelse(HS_OFFER_GPA<3.90,"GPA<3.90",
+                                                                                  ifelse(HS_OFFER_GPA<4.00,"GPA<4.00","GPA>=4.00"))))))))))) 
+
+V2_updated_tier_pred_incoming_class_02_22_2021[V2_updated_tier_pred_incoming_class_02_22_2021$PROGRAM_CODE=="U-EGT-BS-03","PROGRAM_CODE"] <- "U-EGT-BS-01"
+V2_updated_tier_pred_incoming_class_02_22_2021[V2_updated_tier_pred_incoming_class_02_22_2021$PROGRAM_CODE=="U-CON-BS-00","PROGRAM_CODE"] <- "U-EGT-BS-01"
+
+V2_updated_tier_pred_incoming_class_02_22_2021[V2_updated_tier_pred_incoming_class_02_22_2021$PROGRAM_CODE=="U-HOS-BS-09","PROGRAM_CODE"] <- "U-HOS-BS-00"
+V2_updated_tier_pred_incoming_class_02_22_2021[V2_updated_tier_pred_incoming_class_02_22_2021$PROGRAM_CODE=="U-MUP-BA-00","PROGRAM_CODE"] <- "U-MUP-BM-00"
+#3,466
+xtabs(~all_vari_PREDICTION$Pred_Tier)
+xtabs(~V1_updated_tier_pred_incoming_class_02_22_2021$Pred_Tier)
+glimpse(all_vari_PREDICTION)L
+
+# merge with APR hs code and program
+library(readr)
+V1_HIST_APR_PROGRAM_CODE <- read_csv("G:/My Drive/#1_Jay's Space/Application Data/V1-HIST_APR_PROGRAM_CODE.csv", 
+    col_types = cols(X1 = col_skip()))
+
+library(readr)
+HIST_APR_HSNAME_withCODE <- read_csv("G:/My Drive/#1_Jay's Space/Application Data/HIST_APR_HSNAME_withCODE.csv", 
+    col_types = cols(X1 = col_skip()))
+
+# merge with program code
+V3_updated_tier_pred_incoming_class_02_22_2021 <- merge(V2_updated_tier_pred_incoming_class_02_22_2021, V1_HIST_APR_PROGRAM_CODE, by.x="PROGRAM_CODE" , by.y="ENTRY_PROGRAM_CODE",
+                                                        all.x = T)
+
+
+colSums(is.na(V3_updated_tier_pred_incoming_class_02_22_2021))
+NA_PROGRAM <- V3_updated_tier_pred_incoming_class_02_22_2021[which(is.na(V3_updated_tier_pred_incoming_class_02_22_2021$APR_PROGRAM)),]
+NA_PROGRAM
+
+# merge with HS code
+V4_updated_tier_pred_incoming_class_02_22_2021 <- merge(V3_updated_tier_pred_incoming_class_02_22_2021, HIST_APR_HSNAME_withCODE, by.x="HS_CEEB" , by.y="Code",
+                                                        all.x = T)
+colSums(is.na(V4_updated_tier_pred_incoming_class_02_22_2021))
+
+V4_updated_tier_pred_incoming_class_02_22_2021[which(is.na(V4_updated_tier_pred_incoming_class_02_22_2021$APR_HSNAME)), "APR_HSNAME"] <- "0"
+V4_updated_tier_pred_incoming_class_02_22_2021$APR_HSNAME <- as.numeric(V4_updated_tier_pred_incoming_class_02_22_2021$APR_HSNAME)
+V4_updated_tier_pred_incoming_class_02_22_2021 <- V4_updated_tier_pred_incoming_class_02_22_2021 %>% mutate(APR_HSNAME1=ifelse(APR_HSNAME<=0, 0.7309942, V4_updated_tier_pred_incoming_class_02_22_2021$APR_HSNAME))
+
+
+colSums(is.na(V4_updated_tier_pred_incoming_class_02_22_2021)) #517 na
+valueHScode999999 <- V4_updated_tier_pred_incoming_class_02_22_2021[V4_updated_tier_pred_incoming_class_02_22_2021$HS_CEEB==999999,] #NOTAVAILABLE/FL == 0.7309942
+valueHScode999999
+
+write.csv(V4_updated_tier_pred_incoming_class_02_22_2021, "applicants2021_3466DF.csv")
+
+library(readxl)
+FTIC_202108_202105_Admitted_as_of_2_22_21 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/Admissions Data 2018-2020/FTIC 202108 202105 Admitted as of 2-22-21.xlsx")
+hist(FTIC_202108_202105_Admitted_as_of_2_22_21$TRANSFER_HOURS_EARNED)
+colSums(is.na(FTIC_202108_202105_Admitted_as_of_2_22_21))
+xtabs(~FTIC_202108_202105_Admitted_as_of_2_22_21$TRANSFER_HOURS_EARNED)
+
+library(ggplot2)
+ggplot(FTIC_202108_202105_Admitted_as_of_2_22_21, aes(GENDER)) + geom_bar(aes(fill=factor(GENDER)))
+FTIC_202108_202105_CNTYTOP <- FTIC_202108_202105_Admitted_as_of_2_22_21 %>% group_by(CNTY) %>% dplyr::summarise(Count=n()) %>% arrange(-Count)
+FTIC_202108_202105_CNTYTOP
+
+ggplot(FTIC_202108_202105_Admitted_as_of_2_22_21, aes(HS_OFFER_GPA)) + geom_histogram(bins=20, alpha=0.5, fill="blue")
+ggplot(FTIC_202108_202105_Admitted_as_of_2_22_21, aes(HS_FL_YRS)) + geom_histogram(bins=20, alpha=0.5, fill="blue")
+ggplot(FTIC_202108_202105_Admitted_as_of_2_22_21, aes(HS_MAT_YRS)) + geom_histogram(bins=20, alpha=0.5, fill="blue")
+
+# GPA by HS name
+
+p1 <- ggplot(FTIC_202108_202105_Admitted_as_of_2_22_21, aes(CURRICULUM_DEPT, HS_OFFER_GPA))
+p1 <- p1 + geom_boxplot(aes(group=CURRICULUM_DEPT,fill=factor(CURRICULUM_DEPT), alpha=0.4))
+p2 <- p1 + scale_y_continuous(breaks = seq(min(2.5), max(5.2), by=0.1)) + theme_bw()
+p2
+
+# courses works
+FTIC_202108_202105_Admitted_as_of_2_22_21$HS_MAT_YRS_index <- ifelse(FTIC_202108_202105_Admitted_as_of_2_22_21$HS_MAT_YRS<=4.0, "MATH<=4.0YRS","MATH>4.0YRS")
+ggplot(FTIC_202108_202105_Admitted_as_of_2_22_21, aes(HS_OFFER_GPA)) + geom_histogram(aes(fill=HS_MAT_YRS_index),color="blue",binwidth=1) + theme_bw()
+
+
+
+```
+
+```{r eval=FALSE, include=FALSE}
+library(dplyr)
+library(read.dbc)
+V2_APRMASTERDATASET <- read.csv("G:/My Drive/#1_Jay's Space/Application Data/V2_APRMASTERDATASET.csv", stringsAsFactors=TRUE) %>% 
+  mutate(BESTTEST = pmax(ACT_PROPORTION, SAT_PROPORTION, na.rm = TRUE))
+library(readr)
+Top5OverallDWF_Program <- read_csv("G:/My Drive/#1_Jay's Space/Application Data/Top5OverallDWF_Program_imputed2.csv")
+
+V2_APRMASTERDATASET <- merge(V2_APRMASTERDATASET, Top5OverallDWF_Program, by="ENTRY_PROGRAM", all.x = T)
+
+colSums(is.na(V2_APRMASTERDATASET)) # 4 nas
+aa <- V2_APRMASTERDATASET[which(is.na(V2_APRMASTERDATASET$Top5OverallDWF)),]
+aa <- V2_APRMASTERDATASET[V2_APRMASTERDATASET$Deg_DepartmentCode=="PR",]
+max(V2_APRMASTERDATASET$Top5OverallDWF, na.rm=T)
+V2_APRMASTERDATASET[is.na(V2_APRMASTERDATASET$Top5OverallDWF), "Top5OverallDWF"] <- 0.2616279 # imputed program children & society DWF
+V2_APRMASTERDATASET1 <- V2_APRMASTERDATASET %>%  mutate(codeHSGPA=ifelse(GPA_HIGHSCHOOL <3.1000,"GPA<3.10",
+                          ifelse(GPA_HIGHSCHOOL <3.20,"GPA<3.20",
+                                 ifelse(GPA_HIGHSCHOOL <3.30,"GPA<3.30",
+                                        ifelse(GPA_HIGHSCHOOL <3.40,"GPA<3.40",
+                                               ifelse(GPA_HIGHSCHOOL <3.50,"GPA<3.50",
+                                                      ifelse(GPA_HIGHSCHOOL <3.60,"GPA<3.60",
+                                                             ifelse(GPA_HIGHSCHOOL <3.70,"GPA<3.70",
+                                                                    ifelse(GPA_HIGHSCHOOL <3.80,"GPA<3.80",
+                                                                           ifelse(GPA_HIGHSCHOOL <3.90,"GPA<3.90",
+                                                                                  ifelse(GPA_HIGHSCHOOL <4.00,"GPA<4.00","GPA>=4.00")))))))))))
+
+
+write.csv(V2_APRMASTERDATASET1, "V3_APRMASTERDATASET.csv")
+
+######################################################################
+### need to combine with APR by the most failed course by program ####
+######################################################################
+```
+
+### Cleaning FTIC 2018 & 2019 Banner Application Data
+
+```{r include=FALSE}
+library(readr)
+V3_APRMASTERDATASET <- read.csv("G:/My Drive/#1_Jay's Space/Application Data/V3_APRMASTERDATASET.csv", stringsAsFactors=TRUE)
+
+# math course
+all_1819_mathyrs <- read.csv("G:/My Drive/#1_Jay's Space/Application Data/all_1819_mathyrs.csv") %>% select(UNIV_ROW_ID, contains("yrs"), contains("APP"))
+V4_APR_MASTER_mathyrs <- merge(V3_APRMASTERDATASET,all_1819_mathyrs, by="UNIV_ROW_ID", all.x=T )
+
+V4_APR_MASTER_mathyrs$HS_MAT_YRS_index <- ifelse(V4_APR_MASTER_mathyrs$HS_MAT_YRS<=4.0, "MATH<=4.0YRS","MATH>4.0YRS")
+V4_APR_MASTER_mathyrs$HS_MAT_YRS_index <- as.factor(V4_APR_MASTER_mathyrs$HS_MAT_YRS_index)
+
+V3_APR_MASTER <- V4_APR_MASTER_mathyrs %>% mutate(Top5PassRate=(1-Top5OverallDWF)) %>% filter(COHORT_YEAR>=20182019 & COHORT_YEAR<=20192020) %>%  mutate(CourseWork=(HS_ENG_YRS+HS_MAT_YRS+HS_NS_YRS+HS_SS_YRS)/4) 
+colSums(is.na(V3_APR_MASTER))
+
+NA_95 <- V3_APR_MASTER[which(is.na(V3_APR_MASTER$CourseWork)),]
+str(V3_APR_MASTER)
+
+# imputed NA
+library(randomForest)
+imputed_df <- rfImpute(APR~ GPA_HIGHSCHOOL+APR_HSNAME+HS_ENG_YRS+HS_MAT_YRS+HS_SS_YRS+HS_NS_YRS+HS_FL_YRS+CourseWork+APP_NO, data = V3_APR_MASTER, iter=3)
+
+# check multicollinearity
+library(PerformanceAnalytics)
+corcols <- V3_APR_MASTER %>% select(11:17)
+chart.Correlation(imputed_df[,-1]) # suggested using CourseWork or math and ENG
+
+
+xtabs(~V3_APR_MASTER$APR+V3_APR_MASTER$PELL_VERF)
+V3_APR_MASTER$HS_ENG_YRS <- imputed_df$HS_ENG_YRS
+V3_APR_MASTER$HS_MAT_YRS <- imputed_df$HS_MAT_YRS
+V3_APR_MASTER$HS_SS_YRS <- imputed_df$HS_SS_YRS
+V3_APR_MASTER$HS_NS_YRS <- imputed_df$HS_SS_YRS
+
+V3_APR_MASTER$CourseWork <- imputed_df$CourseWork
+V3_APR_MASTER$HS_MAT_YRS_index <-  ifelse(V3_APR_MASTER$HS_MAT_YRS<=4.0, "MATH<=4.0YRS","MATH>4.0YRS")
+V3_APR_MASTER$HS_ENG_YRS_index <-  ifelse(V3_APR_MASTER$HS_ENG_YRS<=4.0, "ENG<=4.0YRS","ENG>4.0YRS")
+V3_APR_MASTER$HS_SS_YRS_index <-  ifelse(V3_APR_MASTER$HS_SS_YRS<=4.0, "SS<=4.0YRS","SS>4.0YRS")
+V3_APR_MASTER$HS_NS_YRS_index <-  ifelse(V3_APR_MASTER$HS_NS_YRS<=4.0, "NS<=4.0YRS","NS>4.0YRS")
+
+
+colSums(is.na(V3_APR_MASTER))
+
+V3_APR_MASTER_vari <- V3_APR_MASTER %>% select(UNIV_ROW_ID,APP_NO,APR_PROGRAM,APR_HSNAME,codeHSGPA,Top5PassRate,
+                                               CourseWork,HS_ENG_YRS, HS_MAT_YRS,HS_SS_YRS,HS_NS_YRS,PELL_VERF,HS_MAT_YRS_index,HS_ENG_YRS_index,HS_SS_YRS_index,HS_NS_YRS_index,APP_NO) 
+xtabs(~V3_APR_MASTER_vari$APP_NO+ V3_APR_MASTER_vari$HS_MAT_YRS_index)
+write.csv(V3_APR_MASTER_vari, "APR_FTIC201819_all.csv")
+```
+
+```{r}
+library(caret)
+# Performs stratified random split of the data set
+set.seed(123)
+TrainingIndex <- createDataPartition(V3_APR_MASTER_vari$APR, p=0.7, list = FALSE)
+TrainingSet <- V3_APR_MASTER_vari[TrainingIndex,] # Training Set
+TestingSet <- V3_APR_MASTER_vari[-TrainingIndex,] # Test Set
+# Build model using all factors and labels
+set.seed(111)
+admitted_glm<- glm(APR ~ ., data = TrainingSet, family="binomial")
+summary(admitted_glm)
+exp(coef(admitted_glm))
+p_0 <- predict(admitted_glm, TrainingSet, type = 'response')
+#misclassfication
+tab_0 <- table(TrainingSet$APR, p_0>0.5)
+(sum(diag(tab_0))/sum(tab_0))
+
+#reduced model
+set.seed(222)
+admitted_glm_re <- glm(APR ~APR_PROGRAM+APR_HSNAME+GENDER+codeHSGPA+CourseWork+Top5PassRate*codeHSGPA+ETHNICITY+HS_MAT_YRS_index +HS_ENG_YRS_index, data = TrainingSet, family="binomial")
+summary(admitted_glm_re)
+#anova(admitted_glm, admitted_glm_re, test = "Chisq")
+library(tidyverse)  # data manipulation and visualization
+library(modelr)     # provides easy pipeline modeling functions
+library(broom)      # helps to tidy up model outputs
+P_value <- tidy(admitted_glm_re)
+round(P_value$p.value, digits = 6)
+#coefficient
+coef1 <- exp(coef(admitted_glm_re))
+coef_table <- knitr::kable(coef1)
+coef_table
+#confint(HSGPAunderlgm_re)
+vari_imp <- knitr::kable(caret::varImp(admitted_glm_re))
+vari_imp
+
+#accuracy 
+p_1 <- predict(admitted_glm_re, TrainingSet, type="response")
+#P_a <- predict(admitted_glm_re, TrainingSet)
+#confusionMatrix(P_a, as.factor(TrainingSet$APR))
+
+#head(p_1,10)
+#head(TrainingSet,10)
+pred_1 <- ifelse(p_1>0.5, 1,0)
+tab_1 <- table(Predicted=pred_1, Actural=TrainingSet$APR)
+tab_1
+round(sum(diag(tab_1))/sum(tab_1),4) #0.8275
+#test data
+p_2 <- predict(admitted_glm_re, TestingSet, type="response")
+#head(p_2,10)
+#head(TestingSet,10)
+pred_2 <- ifelse(p_2>0.5, 1,0)
+tab_2 <- table(Predicted=pred_2, Actural=TestingSet$APR)
+tab_2
+round(sum(diag(tab_2))/sum(tab_2),4) #0.8288
+### goodness of fit
+with(admitted_glm_re, pchisq(null.deviance - deviance, df.null-df.residual, lower.tail=F))#p-value==1.86439e-162
+
+```
+
+
+
+
+
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+## read datset
+library(readr)
+library(dplyr)
+applicants2021_3466DF <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/applicants2021_3466DF.csv", stringsAsFactors=TRUE) 
+xtabs(~applicants2021_3466DF$PELL_ELGBL +  applicants2021_3466DF$PELL_VERF)
+all2021admittedFTIC_all <- applicants2021_3466DF %>% select(APR_PROGRAM, APR_HSNAME="APR_HSNAME1", GENDER, codeHSGPA, PELL_VERF, ETHNICITY,HOURS_BROUGHT_TO_UNIVERSITY)
+hist(all2021admittedFTIC_all$HOURS_BROUGHT_TO_UNIVERSITY)
+PREDICTION <- round(predict(admitted_glm_re, all2021admittedFTIC_all, type="response"),4)
+hist(PREDICTION)
+
+PREDICTION_DF <- cbind(applicants2021_3466DF, PREDICTION)
+PREDICTION_DF$codeProb_APR <- ifelse(PREDICTION_DF$PREDICTION>=0.90,"low-risk",
+                                     ifelse(PREDICTION_DF$PREDICTION>=0.60,"moderate-risk","high-risk"))
+
+
+
+
+#write.csv(PREDICTION_DF,"v4all_vari_PREDICTION.csv")
+write.csv(PREDICTION_DF,"v5all_vari_PREDICTION.csv")
+
+xtabs(~PREDICTION_DF$codeProb_APR)
+xtabs(~all_PREDICTION$TIER)
+# save model
+saveRDS(admitted_glm_re, "./final_admissionFTIC_model.rds")
+### NO RUN ###
+#load model
+final_admission <- readRDS("./final_admissionFTIC_model.rds")
+print(final_admission)
+#prediction
+prediction_admissions <- predict(final_admission, newadmitteddatahere)
+```
+
+
+
+## Summary
+
+Total 3,558 FTIC admitted and it's necessary to predict who will meet APR or non-APR.
+There were 3,466 applicants after removing missing values for HS GPA (92) were predicted.
+
+* Factors considered:
+    + APR by program
+    + APR by high school name
+    + GENDER (female / male)
+    + HS GPA by tenths
+    + Prior Hours
+    + Ethnicity: white / non-White / Non-Resident Alien
+    + Pell Verification: Yes / No
+    
+   
+    
+* Data for prediction modeling from:
+    + FTIC 2017 to 2019
+    + Total of 3,178 data point (removed NA)
+    + Data partitioned 70% (train) and 30% (test)
+    + Overall accuracy is 0.82
+    
+* Issues with new 2021 admission DATA:
+    + If there is no HS name from the historical data, it is listed as "NOTAVAILABLE/FL"
+    + Replacement values are based on APR by "not-available/non-FL" and by HS GPA 
+    + If APR by HS name is 0%, it is replaced with the minimum APR by HS name, but no greater than APR by not-available/non-FL (0.74)
+    + It was observed that some high HS GPA (>3.60) are high-risk as their APR by HS name was historically between 0 and 20%
+    + For example, 2 FTIC came from Fort Myers HS and in the last five years all dropped out
+    
+    
+## Confusion matrix
+
+```{r echo=FALSE}
+knitr::kable(tab_1, caption = "Training Set")
+```
+
+```{r echo=FALSE}
+knitr::kable(tab_2, caption = "Test Set")
+```
+
+
+## Coefficients (reference is HSGPA < 3.10, Gender = Female)
+
+```{r echo=FALSE}
+coef_table
+```
+
+## Variables Importance
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+vari_imp
+```
+
+
+## Cross-Validation
+
+* Used Methods
+  + Leave one out cross-validation (LOOCV)
+  + K-fold cross-validation (cv)
+  + Bootstrapping (boot)
+  + Repeated K-fold cross-validation (repeatedcv)
+  
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+library(Boruta)
+library(mlbench)  
+library(randomForest)
+library(caret)
+
+# using LOOCV RESAMPLING
+model.loocv <- train(APR ~APR_PROGRAM+APR_HSNAME+GENDER+codeHSGPA+HOURS_BROUGHT_TO_UNIVERSITY*codeHSGPA+PELL_VERF*GENDER+ETHNICITY, data=TrainingSet, method="glm",family="binomial",trControl=trainControl(method = "LOOCV", number=5,classProbs = TRUE))
+
+# using K-folder corss validation resampling
+model.cv <- train(APR ~APR_PROGRAM+APR_HSNAME+GENDER+codeHSGPA+HOURS_BROUGHT_TO_UNIVERSITY*codeHSGPA+PELL_VERF*GENDER+ETHNICITY, data=TrainingSet, method="glm",family="binomial",trControl=trainControl(method = "cv", number=5,classProbs = TRUE))
+# using bootstrapping resampling
+model.boot <- train(APR ~APR_PROGRAM+APR_HSNAME+GENDER+codeHSGPA+HOURS_BROUGHT_TO_UNIVERSITY*codeHSGPA+PELL_VERF*GENDER+ETHNICITY, data=TrainingSet, method="glm",family="binomial",trControl=trainControl(method = "boot", number=5,classProbs = TRUE))
+# using repeated k-fold cross validation resampling
+model.repeatedcv <- train(APR ~APR_PROGRAM+APR_HSNAME+GENDER+codeHSGPA+HOURS_BROUGHT_TO_UNIVERSITY*codeHSGPA+PELL_VERF*GENDER+ETHNICITY, data=TrainingSet, method="glm",family="binomial",trControl=trainControl(method = "repeatedcv", number=5,classProbs = TRUE))
+# prediction
+ploocv <- predict(model.loocv, TrainingSet, "prob")
+pcv <- predict(model.cv, TrainingSet, "prob")
+pboot <- predict(model.boot, TrainingSet, "prob")
+prepeatedcv <- predict(model.repeatedcv, TrainingSet, "prob")
+
+#print(model.loocv)
+#print(model.cv)
+#print(model.boot)
+#print(model.repeatedcv)
+acc1 <- model.boot$results[,c(2:4)]
+str(acc1)
+# Models
+models <- c("LOOCV","CV","BOOT","REPEATEDCV")
+accuracy <- c(model.loocv$results[ ,2],
+              model.cv$results[,2],
+              model.boot$results[ ,2],
+              model.repeatedcv$results[,2])
+
+accy <- data.frame(models, accuracy)
+write.csv(accy, "accuracy_application.csv")
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+accuracy_application <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/accuracy_application.csv") %>% select(-1)
+knitr::kable(accuracy_application)
+```
+
+
+
+
+## Prediction Index
+  
+  * Low-risk: Pr >= 0.90
+  * Moderate-risk: 0.60 <= Pr < 0.90
+  * High-risk: Pr < 0.60
+  
+## Table by risk
+
+```{r echo=FALSE}
+ knitr::kable(with(all_vari_PREDICTION, table(codeProb_APR)))
+```
+
+## Index Prediction by High School GPA
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+library(highcharter)
+library(dplyr)
+table_APR <- all_vari_PREDICTION %>% group_by(codeProb_APR, codeHSGPA) %>% dplyr::summarise( Count=n())
+hchart_index <- hchart(table_APR, "column", hcaes(x= codeHSGPA, y = Count, group= codeProb_APR)) 
+hchart_index 
+```
+
+
+
+
+
+
+## Included  resutls table
+
+```{r echo=FALSE}
+library(DT)
+ FOR_TABLE <- all_vari_PREDICTION %>% select(codeProb_APR,Prob_APR="PREDICTION",UWFID,HS_OFFER_GPA,codeHSGPA,Pred_Tier,College,Departments="CURRICULUM_DEPT",APR_PROGRAM="APR_PROGRAM",APR_HSNAME_imputated="APR_HSNAME1",APR_HSNAME, PROGRAM_DESC="PROGRAM_DESC",PROGRAM_CODE="PROGRAM_CODE",HS_NAME,GENDER="GENDER",contains("PELL"), BEST_SCORE ,HS_CORE_GPA ,HOURS_BROUGHT_TO_UNIVERSITY,ETHNICITY)
+#write.csv(FOR_TABLE,"PREDICTION_results_better.csv")
+ 
+results_table <- datatable(FOR_TABLE,extensions = "Buttons",caption = "Probability of APR",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+
+results_table
+```
+
+## Pivot Table (Index Prediction vs. College)
+
+```{r echo=FALSE, warning=FALSE}
+
+library(rpivotTable)
+For_pivot <- rpivotTable(FOR_TABLE, aggregatorName = "Count",
+            rows = c("codeHSGPA", "codeProb_APR") ,
+            
+            cols = c("College"),
+           
+            subtotals = T, rendererName = "Table With Subtotal")
+
+For_pivot
+```
+

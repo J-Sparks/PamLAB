@@ -1,0 +1,201 @@
+---
+title: "Predicting APR - Admitted 2021 FTIC"
+author: "PAM Lab - UWF"
+date: "3/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r eval=FALSE, include=FALSE}
+
+#read data
+Banner_Application_Load_9_30_2019 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/Admissions Data 2018-2020/Banner Application Load 9.30.2019.csv")
+Banner_Application_Load_9_30_2018 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/Admissions Data 2018-2020/Banner Application Load 9.30.2018.csv")
+colSums(is.na(Banner_Application_Load_9_30_2018))
+test_DF18 <- Banner_Application_Load_9_30_2018 %>%  select(UWFID,TR_GPA,HS_CEEB,HS_NAME,HS_CNTY, contains("YRS"), APP_PAID, APP_NO, APP_STATUS) 
+test_DF19 <- Banner_Application_Load_9_30_2019 %>%  select(UWFID,TR_GPA,HS_CEEB,HS_NAME,HS_CNTY,contains("YRS"), APP_PAID, APP_NO, APP_STATUS) 
+test_DF1819 <- rbind(test_DF18,test_DF19)
+
+APR_up201819 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE_ALL_ENR_up2020.csv") %>% filter(COHORT_YEAR == 20192020 | COHORT_YEAR == 20182019)
+all_1819_APR <- merge(APR_up201819, test_DF1819, by.x = "UNIV_ROW_ID", by.y="UWFID", all.x = T)
+write.csv(APR_up201819, "APR_FTIC20182019.csv")
+```
+
+
+```{r}
+######
+##2021 data
+######
+
+library(readr)
+library(dplyr)
+applicants2021_3466DF <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/applicants2021_3466DF.csv", stringsAsFactors=TRUE) 
+library(readr)
+v5all_vari_PREDICTION <- read.csv("v5all_vari_PREDICTION.csv", stringsAsFactors=TRUE)
+unique(v5all_vari_PREDICTION$ENTRY_COLLEGE)
+###old data
+library(readr)
+APR_FTIC201819_DF <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/APR_FTIC201819_DF.csv",stringsAsFactors=TRUE) %>% select(-1)#2137
+addmargins(table(APR_FTIC201819_DF$codeHSGPA,APR_FTIC201819_DF$APR))
+#APR_FTIC20182019 <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/APR_FTIC20182019.csv", stringsAsFactors=TRUE)
+colSums(is.na(APR_FTIC201819_DF))
+unique(APR_FTIC201819_DF$ENTRY_COLLEGE)
+n <- names(APR_FTIC201819_DF)
+n
+myvari <- as.formula(paste("APR ~", paste(n[!n %in% "APR"], collapse = " + ")))
+myvari
+
+### dataset by college
+APR_HMCSE <- APR_FTIC201819_DF %>% filter( ENTRY_COLLEGE =="HMCSE") %>% select(1:12)
+glimpse(APR_HMCSE)
+xtabs(~APR_HMCSE$APR+APR_HMCSE$PELL_VERF)
+APR_COB <- APR_FTIC201819_DF %>% filter( ENTRY_COLLEGE =="COB")
+APR_UKCOH <- APR_FTIC201819_DF %>% filter( ENTRY_COLLEGE =="UKCOH")
+APR_CASSH <- APR_FTIC201819_DF %>% filter( ENTRY_COLLEGE =="CASSH")
+APR_UNA <- APR_FTIC201819_DF %>% filter( ENTRY_COLLEGE =="UNA")
+
+```
+
+```{r eval=FALSE, include=FALSE}
+library(rsample)  # data splitting 
+library(dplyr)    # data transformation
+library(ggplot2)  # data visualization
+library(caret)    # implementing with caret
+library(naivebayes)
+### HMCSE
+library(caret)
+set.seed(123)
+TrainingIndex <- createDataPartition(APR_HMCSE$APR, p=0.8, list = FALSE)
+TrainingSet <- APR_HMCSE[TrainingIndex,] # Training Set
+TestingSet <- APR_HMCSE[-TrainingIndex,] # Test Set
+# Build model using all factors and labels
+set.seed(111)
+admitted_glm<- glm(APR ~ ., data = TrainingSet, family="binomial")
+summary(admitted_glm)
+exp(coef(admitted_glm))
+p_0 <- predict(admitted_glm, TrainingSet, type = 'response')
+#misclassfication
+tab_0 <- table(TrainingSet$APR, p_0>0.5)
+(sum(diag(tab_0))/sum(tab_0))
+
+### NBC
+library(naivebayes)
+library(e1071)
+library(ModelMetrics)
+set.seed(123)
+admitted_nbc <- naiveBayes(APR~., data = TrainingSet,, usekernel = T, usepoisson = T, laplace = 0)
+nbc_HMCSE <- predict(admitted_nbc, TrainingSet, type = "class")
+PRED_HMCSE <- table(nbc_HMCSE, TrainingSet$APR, dnn=c("Prediction", "Actual"))
+PRED_HMCSE
+
+```
+
+### Prediction for all
+
+```{R}
+library(caret)
+set.seed(123)
+TrainingIndex <- createDataPartition(APR_FTIC201819_DF$APR, p=0.8, list = FALSE)
+TrainingSet <- APR_FTIC201819_DF[TrainingIndex,] # Training Set
+TestingSet <- APR_FTIC201819_DF[-TrainingIndex,] # Test Set
+#reduced model
+set.seed(222)
+admitted_glm_re <- glm(APR ~APR_PROGRAM+APR_HSNAME+GENDER+codeHSGPA+CourseWork+Top5PassRate*codeHSGPA+ETHNICITY+HS_MAT_YRS_index +HS_ENG_YRS_index, data = TrainingSet, family="binomial")
+summary(admitted_glm_re)
+#anova(admitted_glm, admitted_glm_re, test = "Chisq")
+library(tidyverse)  # data manipulation and visualization
+library(modelr)     # provides easy pipeline modeling functions
+library(broom)      # helps to tidy up model outputs
+P_value <- tidy(admitted_glm_re)
+round(P_value$p.value, digits = 6)
+#coefficient
+coef1 <- exp(coef(admitted_glm_re))
+coef_table <- knitr::kable(coef1)
+coef_table
+#confint(HSGPAunderlgm_re)
+vari_imp <- knitr::kable(caret::varImp(admitted_glm_re))
+vari_imp
+
+#accuracy 
+p_1 <- predict(admitted_glm_re, TrainingSet, type="response")
+#P_a <- predict(admitted_glm_re, TrainingSet)
+#confusionMatrix(P_a, as.factor(TrainingSet$APR))
+
+#head(p_1,10)
+#head(TrainingSet,10)
+pred_1 <- ifelse(p_1>0.5, 1,0)
+tab_1 <- table(Predicted=pred_1, Actural=TrainingSet$APR)
+tab_1
+round(sum(diag(tab_1))/sum(tab_1),4) #0.8275
+#test data
+p_2 <- predict(admitted_glm_re, TestingSet, type="response")
+#head(p_2,10)
+#head(TestingSet,10)
+pred_2 <- ifelse(p_2>0.5, 1,0)
+tab_2 <- table(Predicted=pred_2, Actural=TestingSet$APR)
+tab_2
+round(sum(diag(tab_2))/sum(tab_2),4) #0.8288
+### goodness of fit
+with(admitted_glm_re, pchisq(null.deviance - deviance, df.null-df.residual, lower.tail=F))#p-value==1.86439e-162
+```
+### Prediction for under HS GPA 4.00
+
+```{r}
+APR_FTIC201819_DF_underHS4.0 <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/APR_FTIC20182019.csv",stringsAsFactors=TRUE)
+V1APR_FTIC201819_DF_underHS4.0 <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/APR_FTIC201819_all.csv",stringsAsFactors=TRUE)
+APR_FTIC201819_addFactors <- merge(APR_FTIC201819_DF_underHS4.0, V1APR_FTIC201819_DF_underHS4.0,  by="UNIV_ROW_ID", all=T )  #2137 
+glimpse(APR_FTIC201819_addFactors)
+APR_FTIC201819_addFactors_under4.00 <- APR_FTIC201819_addFactors %>% filter(GPA_HIGHSCHOOL< 4.00) #1277
+
+
+
+library(caret)
+set.seed(123)
+TrainingIndex <- createDataPartition(APR_FTIC201819_addFactors_under4.00$APR, p=0.8, list = FALSE)
+TrainingSet <- APR_FTIC201819_addFactors_under4.00[TrainingIndex,] # Training Set
+TestingSet <- APR_FTIC201819_addFactors_under4.00[-TrainingIndex,] # Test Set
+#reduced model
+set.seed(222)
+admitted_glm_re_under4.00 <- glm(APR ~ APP_NO+APR_PROGRAM+APR_HSNAME+GENDER+codeHSGPA+CourseWork+Top5PassRate*codeHSGPA+ETHNICITY+HS_MAT_YRS_index +HS_ENG_YRS_index +COUNTY_GROUP, data = TrainingSet, family="binomial")
+summary(admitted_glm_re_under4.00)
+#anova(admitted_glm, admitted_glm_re, test = "Chisq")
+library(tidyverse)  # data manipulation and visualization
+library(modelr)     # provides easy pipeline modeling functions
+library(broom)      # helps to tidy up model outputs
+P_value <- tidy(admitted_glm_re_under4.00)
+round(P_value$p.value, digits = 6)
+#coefficient
+coef1 <- exp(coef(admitted_glm_re_under4.00))
+coef_table <- knitr::kable(coef1)
+coef_table
+#confint(HSGPAunderlgm_re)
+vari_imp <- knitr::kable(caret::varImp(admitted_glm_re_under4.00))
+vari_imp
+
+#accuracy 
+p_1 <- predict(admitted_glm_re_under4.00, TrainingSet, type="response")
+#P_a <- predict(admitted_glm_re, TrainingSet)
+#confusionMatrix(P_a, as.factor(TrainingSet$APR))
+
+#head(p_1,10)
+#head(TrainingSet,10)
+pred_1 <- ifelse(p_1>0.5, 1,0)
+tab_1 <- table(Predicted=pred_1, Actural=TrainingSet$APR)
+tab_1
+round(sum(diag(tab_1))/sum(tab_1),4) #0.8275
+#test data
+p_2 <- predict(admitted_glm_re_under4.00, TestingSet, type="response")
+#head(p_2,10)
+#head(TestingSet,10)
+pred_2 <- ifelse(p_2>0.5, 1,0)
+tab_2 <- table(Predicted=pred_2, Actural=TestingSet$APR)
+tab_2
+round(sum(diag(tab_2))/sum(tab_2),4) #0.8288
+### goodness of fit
+with(admitted_glm_re, pchisq(null.deviance - deviance, df.null-df.residual, lower.tail=F))#p-value==1.86439e-162
+
+```
+

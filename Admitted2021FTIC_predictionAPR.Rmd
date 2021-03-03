@@ -1,0 +1,58 @@
+---
+title: "Admitted 2021 FTIC - Prediction APR"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+final_admission <- readRDS("./final_admissionFTIC_model.rds")
+
+library(readr)
+all_vari_PREDICTION <- read_csv("all_vari_PREDICTION.csv") # clean the final dataset and complete this report
+
+
+```
+
+## Prediction of APR for 2021 FIC
+
+There are 2969 FTIC admitted and should predict who will be APR or non-APR
+
+* Factors are considered
+
+    + APR by program
+    + APR by high school names
+    + GENDER (female and male)
+    + HS GPA by tenths
+    
+* Data for this analysis from:
+
+    + FTIC 2015 to 2019, total 5,736 data point (removed NA)
+    + Data partition: 70% (train) and 30% (test)
+    + Accuracy: 80.15%(train) and 78.6% (test)
+    
+* Issues
+
+    + Replacement values are based on average APR by program  or average APR by HS GPA (tenths)
+    + 1,872 FTIC with missing HS NAMEs were replaced 
+
+## Included  resutls table
+
+```{r}
+library(DT)
+results_table <- datatable(all_vari_PREDICTION, extensions = "Buttons",caption = "Probability of APR",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+
+results_table
+```
+
+
+You can download the table by clicking menu
+
+```{r }
+
+
+
+```
+

@@ -1,0 +1,578 @@
+
+---
+title: "Summary - Admitted 2021 FTIC HS GPA under 3.5"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(readr)
+HSGPAunder_1 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/3.0-3.5_Tiers.csv", 
+    col_types = cols(Column1 = col_skip())) %>% select(UWFID,TIER="Pred_Tier",HS_OFFER_GPA,HS_CORE_GPA,BEST_SCORE,TRANSFER_HOURS_EARNED,HS_NAME,HS_CNTY,codeCOLLEGE="CURRICULUM_COLL",codeDEPART="CURRICULUM_DEPT",
+                                                       contains("PROGRAM"),GENDER,RACE,COUNTY,COUNTY_GROUP,AGE_AT_ENTRY,CNTY1,contains("PELL"))
+pMISS <- function(x){sum(is.na(x))/length(x)*100}
+apply(HSGPAunder_1,2, pMISS)
+sapply(HSGPAunder_1, function(x) sum(is.na(x)))
+##HSGPA rank
+HSGPAunder <- HSGPAunder_1 %>% mutate(codeHSGPA=ifelse(HS_OFFER_GPA<=3.1000,"GPA<=3.10",
+                                                     ifelse(HS_OFFER_GPA<=3.20,"GPA<=3.20",
+                                                            ifelse(HS_OFFER_GPA<=3.30,"GPA<=3.30",
+                                                                   ifelse(HS_OFFER_GPA<=3.40,"GPA<=3.40","GPA<3.50"))))) %>% 
+                                              mutate(COLLEGE=ifelse(codeCOLLEGE==0,"UNA", # college
+                                                               ifelse(codeCOLLEGE=="A","HMCSE",
+                                                                ifelse(codeCOLLEGE=="P","CEPS",
+                                                                 ifelse(codeCOLLEGE=="H","CASSH",
+                                                                    ifelse(codeCOLLEGE=="M","UKCOH",
+                                                                      ifelse(codeCOLLEGE=="B","COB","NA")))))))
+  
+# transfer hours NA==0
+#HSGPAunder[which(is.na(HSGPAunder$TRANSFER_HOURS_EARNED)),"TRANSFER_HOURS_EARNED"] <- 0
+# HS_CORE_GPA
+#HSGPAunder[which(is.na(HSGPAunder$HS_CORE_GPA)),"HS_CORE_GPA"] <- 0
+# RACE NA=NA
+HSGPAunder[which(is.na(HSGPAunder$RACE)),"RACE"] <- "Not Reported"
+
+HSGPAunder$codeRACE <- HSGPAunder$RACE
+HSGPAunder[HSGPAunder$codeRACE == "W","codeRACE"] <- "White"
+HSGPAunder[HSGPAunder$codeRACE == "B","codeRACE"] <- "African American"
+HSGPAunder[HSGPAunder$codeRACE == "A","codeRACE"] <- "Asian"
+HSGPAunder[HSGPAunder$codeRACE == "I","codeRACE"] <- "American Indian/Alaskan Native"
+twoormore <- c("I,W","P,W","B,W","B,P","A,W","A,B")
+
+HSGPAunder$codeRACE1 <- sapply(HSGPAunder[,23], function(x) replace(x, x %in% c("I,W","P,W","B,W","B,P","A,W","A,B"), 99))
+ HSGPAunder$codeRACE1 <- gsub(99,"Two or More", HSGPAunder$codeRACE1)
+ 
+HSGPAunder[HSGPAunder$GENDER=="F","GENDER"] <- "Female"
+HSGPAunder[HSGPAunder$GENDER=="M","GENDER"] <- "Male"
+
+### recode Ethnicity
+HSGPAunder_new <- HSGPAunder %>% mutate(codeEthnicity=ifelse(codeRACE1=="White","White",
+                                                         ifelse(codeRACE1=="African American","AA",
+                                                                ifelse(codeRACE1=="Asian","Asian",
+                                                                       ifelse(codeRACE1=="Two or More","Two or More","Others")))))
+
+HSGPAunder_new$codePROGRAM <- substr(HSGPAunder_new$PROGRAM_CODE, start = 1, stop = 8)
+HSGPAunder_new$codePROGRAM1 <- substr(HSGPAunder_new$PROGRAM_CODE, start = 3, stop = 5)
+
+HSGPAunder_new$codeEthnicity1 <- HSGPAunder_new$codeEthnicity
+HSGPAunder_new[HSGPAunder_new$codeDEPART==0,"codeDEPART"] <- "UNA"
+HSGPAunder_new[HSGPAunder_new$codeCOLLEGE==0,"codeCOLLEGE"] <- "UNA"
+HSGPAunder_new$APR <- NA
+write.csv(HSGPAunder_new,"HSGPAunder3_5.csv")
+```
+
+```{css, echo=FALSE}
+.rpivottable{overflow-x: scroll; }
+.DataTable{"scrollX": true}
+```
+Admitted 2021 FTIC High School GPA under 3.5
+======================================================================
+
+
+Column {.tabset .tabset-fade }
+-----------------------------------------------------------------------
+
+
+### TIER by COLLEGE
+
+```{r}
+library(plotly)
+library(dplyr)
+
+HSGPAunder_new$TIER <- as.factor(HSGPAunder_new$TIER)
+fig_a <- HSGPAunder_new %>% count(TIER, COLLEGE)
+fig_a <- fig_a %>% plot_ly(x= ~COLLEGE, y=~n, color=~TIER)
+fig_a
+```
+
+### High School GPA (by tenths) by Counties
+
+```{r}
+HSGPAunder_new$codeHSGPA <- as.factor(HSGPAunder_new$codeHSGPA)
+fig_b <- HSGPAunder_new %>% 
+  group_by(CNTY1,codeHSGPA) %>% 
+  summarise(count=n()) %>% na.omit() %>% 
+  plot_ly(x=~CNTY1, y=~count,color =~ codeHSGPA, type="bar") %>% 
+  #add_trace(y=~count, name= "CRDGPAAPR") %>% 
+  layout(xaxis=list(title="Counties"), yaxis=list(title='Counts by Counties'), barmode="stack")
+fig_b
+```
+
+
+### High School GPA by Ethnicity
+
+
+```{r}
+HSGPAunder_new$codeEthnicity <- as.factor(HSGPAunder_new$codeEthnicity)
+#unique(HSGPAunder_new$codeEthnicity)
+fig_b2 <- HSGPAunder_new %>% 
+  group_by(codeEthnicity,codeHSGPA) %>% 
+  dplyr::summarise(count=n(), .groups='drop') %>%  
+  plot_ly(x=~codeHSGPA, y=~count, color=~codeEthnicity, type="bar") %>% 
+  layout(xaxis=list(title="High School GPA by tenths"), yaxis=list(title='High Scholl GPA by Ethnicity'), barmode="stack")
+fig_b2
+```
+
+
+
+
+### Pivot Table by HS GPA (by tenths)
+
+```{r}
+library(rpivotTable)
+rpivotTable(HSGPAunder_new, aggregatorName = "Count",
+            rows = c("COLLEGE","TIER"),
+            
+            cols = c("codeHSGPA"),
+           
+            subtotals = T, rendererName = "Table With Subtotal")
+```
+
+### DATA Table
+
+```{r }
+library(DT)
+datatble <- DT::datatable(HSGPAunder_new, extensions = "Buttons",caption = "HS GPA under 3.5",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25,scrollY=800,scrollX=TRUE))
+datatble
+```
+
+
+### Numbers of 2021 FTIC in HMCSE with HS GPA under 3.5 (by tenths) 
+
+```{r}
+HSGPAunder_new$TIER <- as.factor(HSGPAunder_new$TIER)
+fig_C <- HSGPAunder_new[HSGPAunder_new$COLLEGE=="HMCSE",] %>% 
+  group_by(codeHSGPA,PROGRAM_DESC) %>% 
+  summarise(count=n()) %>% na.omit() %>% 
+  plot_ly(x=~PROGRAM_DESC, y=~count,color =~ codeHSGPA, type="bar") %>% 
+  #add_trace(y=~count, name= "CRDGPAAPR") %>% 
+  layout(xaxis=list(title="PROGRAMS in HMCSE"), yaxis=list(title='Counts by HS GPA'), barmode="stack")
+fig_C
+```
+
+### Average HS GPA by College and Program 2021 FTIC
+
+```{r}
+library(dplyr)
+summaryall <- HSGPAunder_new %>% group_by(COLLEGE,PROGRAM_DESC) %>% dplyr::summarise(meanHSGPA=round(mean(HS_OFFER_GPA, na.rm=T),4), meanHSCoreGPA=round(mean(HS_CORE_GPA, na.rm=T),4), meanTransHrs=mean(TRANSFER_HOURS_EARNED,na.rm=T), Counts=n())
+
+library(DT)
+datatable(summaryall, extensions = "Buttons",caption = "Summary  HS GPA under 3.5",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25,scrollY=800,scrollX=TRUE))
+```
+
+Prediction of APR for 2021 HSGPA under3.5 - Logistic Regression Analysis
+==============================================================================================
+
+
+
+Column {.tabset .tabset-fade }
+-----------------------------------------------------------------------
+
+
+```{r  include=FALSE}
+
+########## APR ###########
+##################################
+# build a model using CSE data
+CSE_ALL_ENR_up2020 <- read.csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE_ALL_ENR_up2020.csv", stringsAsFactors=TRUE) 
+HSGPAunder3.5_DF <- read.csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE_ALL_ENR_up2020.csv", stringsAsFactors=TRUE) %>% 
+  filter(COHORT_YEAR<=20192020,GPA_HIGHSCHOOL<3.500) %>%
+  select(GENDER,codeRACE="ETHNICITY",AGE_AT_ENTRY,GPA_HIGHSCHOOL,COUNTY_GROUP,COUNTY,TIER="APPLICANT_TIER",AveGPA2.77,APR, HIGH_SCHOOL_NAME,contains("PROGRAM"),contains("PROPORTION"),contains("DEPART"),contains("code")) %>% 
+  mutate(codeHSGPA=ifelse(GPA_HIGHSCHOOL<=3.1000,"GPA<=3.10",
+                                                     ifelse(GPA_HIGHSCHOOL<=3.2000,"GPA<=3.20",
+                                                            ifelse(GPA_HIGHSCHOOL<=3.30000,"GPA<=3.30",
+                                                                   ifelse(GPA_HIGHSCHOOL<=3.40000,"GPA<=3.40",
+                                                                          ifelse(GPA_HIGHSCHOOL<3.50000,"GPA<3.50","GPA>=3.50")))))) %>% 
+  mutate(codeEthnicity=ifelse(codeRACE=="White","White",
+                              ifelse(codeRACE=="African American","AA",
+                                     ifelse(codeRACE=="Asian","Asian",
+                                            ifelse(codeRACE=="Two or More","Two or More","Others"))))) 
+ 
+codePROGRAM <- HSGPAunder3.5_DF$ENTRY_PROGRAM_CODE 
+## code program
+codePROGRAM1 <- substr(codePROGRAM, start=3, stop=5)
+HSGPAunder3.5_DF$codePROGRAM1 <- codePROGRAM1
+HSGPAunder3.5_DF$BestTest_PROPORTION <- pmax(HSGPAunder3.5_DF$ACT_PROPORTION,HSGPAunder3.5_DF$SAT_PROPORTION)
+#range(HSGPAunder3.5_DF$BestTest_PROPORTION)
+## missing values
+HSGPAunder3.5_DF[which(HSGPAunder3.5_DF$BestTest_PROPORTION==0),"BestTest_PROPORTION"] <- NA
+sapply(HSGPAunder3.5_DF,pMISS)
+
+
+
+### To get an probability of APR by Counties and HS Names
+tab_counties <- addmargins(table(HSGPAunder3.5_DF$COUNTY, HSGPAunder3.5_DF$APR))
+DF_counites <- as.data.frame.matrix(tab_counties)
+DF_counites$COUNTY <- rownames(tab_counties)
+DF_counites <- DF_counites  %>% filter(COUNTY != "Sum")
+DF_counites$APRRATE_counties <- round( DF_counites$Yes/DF_counites$Sum*100,4)
+
+
+### To get an probability of APR by Counties and HS Names
+tab_HSNAME <- addmargins(table(HSGPAunder3.5_DF$HIGH_SCHOOL_NAME, HSGPAunder3.5_DF$APR))
+DF_HSNAME <- as.data.frame.matrix(tab_HSNAME)
+DF_HSNAME$HIGH_SCHOOL_NAME <- rownames(tab_HSNAME)
+DF_HSNAME <- DF_HSNAME  %>% filter(HIGH_SCHOOL_NAME != "Sum")
+DF_HSNAME$APRRATE_HSNAME <- round(DF_HSNAME$Yes/DF_HSNAME$Sum*100,4)
+
+HSGPAunder3.5_dataset_rate <- merge(DF_counites,HSGPAunder3.5_DF, by="COUNTY", all=T)
+HSGPAunder3.5_dataset_rate2 <- merge(HSGPAunder3.5_dataset_rate,DF_HSNAME, by="HIGH_SCHOOL_NAME", all=T)
+write.csv(HSGPAunder3.5_dataset_rate2,"HSGPAunder3.5_dataset_rate2.csv")
+### To get an APR Rate by program
+tab_PROGRAMcode <- addmargins(table(HSGPAunder3.5_DF$codePROGRAM1, HSGPAunder3.5_DF$APR))
+DF_tab_PROGRAMcode <- as.data.frame.matrix(tab_PROGRAMcode)
+DF_tab_PROGRAMcode$codePROGRAM1 <- rownames(tab_PROGRAMcode)
+DF_tab_PROGRAMcode <- DF_tab_PROGRAMcode %>% filter(codePROGRAM1 != "Sum")
+DF_tab_PROGRAMcode$APRRATE_PROGRAM <- round( DF_tab_PROGRAMcode$Yes/DF_tab_PROGRAMcode$Sum*100,4)
+HSGPAunder3.5_dataset_rate3 <- merge(DF_tab_PROGRAMcode,HSGPAunder3.5_dataset_rate2, by.x="codePROGRAM1",by.y="codePROGRAM1", all=T)
+write.csv(HSGPAunder3.5_dataset_rate3,"HSGPAunder3.5_dataset_rate3.csv")
+### To get an average APR HSGPA for under APR FTIC by codeprogramn
+APR_HSGPA_PROGRAM_DF <- read.csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE_ALL_ENR_up2020.csv", stringsAsFactors=FALSE) %>% 
+  filter((COHORT_YEAR<=20192020 & COHORT_YEAR>=20172018)) %>% select(contains("APR"),contains("PROGRAM"),contains("GPA"))
+APR_HSGPA_PROGRAM_DF$codePROGRAM1 <- substr(APR_HSGPA_PROGRAM_DF$ENTRY_PROGRAM_CODE, start = 3,stop = 5)
+APR_HSGPA_PROGRAM_DF1 <- APR_HSGPA_PROGRAM_DF %>% group_by(codePROGRAM1,APR) %>% dplyr::summarise(meanHSGPAAPR=mean(GPA_HIGHSCHOOL, na.rm=T), Counts=n()) %>% arrange(codePROGRAM1)
+# merge
+library(tidyr)
+spreadDF <- APR_HSGPA_PROGRAM_DF1 %>% spread(APR,meanHSGPAAPR)
+colnames(spreadDF) <- c("codePROGRAM1","CountFTIC","AveHSGPA_NoAPR","AveHSGPA_YesAPR")
+df1 <- spreadDF %>% select(1,2,3) %>% na.omit()
+df2 <- spreadDF %>% select(1,2,4) %>% na.omit()
+AveHSGPA_APR <- merge(df1,df2, by="codePROGRAM1", all=T)
+colnames(AveHSGPA_APR) <- c("codePROGRAM1","CountNoAPR","AveHSGPA_NoAPR","CountYesAPR","AveHSGPA_YesAPR")
+
+HSGPAunder3.5_dataset_rate4 <- merge(AveHSGPA_APR,HSGPAunder3.5_dataset_rate3, by.x="codePROGRAM1",by.y="codePROGRAM1", all=T)
+write.csv(HSGPAunder3.5_dataset_rate4,"HSGPAunder3.5_dataset_rate4.csv")
+
+
+
+# two way table
+xtabs(~GENDER+APR, data = HSGPAunder3.5_dataset_rate4)
+xtabs(~codeEthnicity+APR, data = HSGPAunder3.5_dataset_rate4)
+xtabs(~TIER+APR, data = HSGPAunder3.5_dataset_rate4)
+xtabs(~codeHSGPA+APR, data = HSGPAunder3.5_dataset_rate4)
+xtabs(~codePROGRAM1+APR,data = HSGPAunder3.5_dataset_rate4)
+
+### my data set
+HSGPAunder3.5_dataset_rate4[which(is.na(HSGPAunder3.5_dataset_rate4$APRRATE_PROGRAM)),"APRRATE_PROGRAM"] <- 0
+HSGPAunder3.5_dataset_rate4[which(is.na(HSGPAunder3.5_dataset_rate4$APRRATE_counties)),"APRRATE_counties"] <- 0
+HSGPAunder3.5_dataset_rate4[which(is.na(HSGPAunder3.5_dataset_rate4$APRRATE_HSNAME)),"APRRATE_HSNAME"] <- 0
+HSGPAunder3.5_dataset_rate4[which(is.na(HSGPAunder3.5_dataset_rate4$AveHSGPA_NoAPR)),"AveHSGPA_NoAPR"] <- 0
+HSGPAunder3.5_dataset_rate4[which(is.na(HSGPAunder3.5_dataset_rate4$AveHSGPA_YesAPR)),"AveHSGPA_YesAPR"] <- 0
+HSGPAunder3.5_dataset_rate4[which(is.na(HSGPAunder3.5_dataset_rate4$GPA_HIGHSCHOOL)),"GPA_HIGHSCHOOL"] <- NA
+
+
+HSGPA_data <- HSGPAunder3.5_dataset_rate4 %>%   filter(TIER != 1) %>%  select(APRRATE_PROGRAM,APRRATE_counties,APRRATE_HSNAME,APRAveHSGPA_PROGRAM="AveHSGPA_YesAPR",GENDER,codeEthnicity,codeHSGPA,AGE_AT_ENTRY,TIER,APR) %>% na.omit()#1889
+
+## replacing missing values
+library(mice)
+library(VIM)
+#HSGPA_data$GPA_HIGHSCHOOL <- as.numeric(gsub("\\.","",HSGPA_data$GPA_HIGHSCHOOL))
+#HSGPA_data$TIER <- as.numeric(gsub("\\.","",HSGPA_data$TIER))
+#HSGPA_data$BestTest_PROPORTION <- as.numeric(gsub("\\.","",HSGPA_data$BestTest_PROPORTION))
+#imp_regression <- regressionImp(BestTest_PROPORTION ~ GPA_HIGHSCHOOL+TIER, HSGPAunder3.5_DF)
+#aggr(imp_regression, delimiter = "_imp")
+#imputeTest <- mice(HSGPA_data[, c("BestTest_PROPORTION","GPA_HIGHSCHOOL","TIER"),m=3,seed=123])
+#imputeHS$imp$GPA_HIGHSCHOOL
+```
+
+### Prediction of APR for HS GPA under3.5 2021 FTIC (sample)
+
+```{r}
+### logistice modeling
+library(caret)
+# Performs stratified random split of the data set
+TrainingIndex <- createDataPartition(HSGPA_data$APR, p=0.8, list = FALSE)
+TrainingSet <- HSGPA_data[TrainingIndex,] # Training Set
+TestingSet <- HSGPA_data[-TrainingIndex,] # Test Set
+
+# Build model using all factors and labels
+set.seed(111)
+HSGPAunderlgm <- glm(APR ~ ., data = TrainingSet, family="binomial")
+summary(HSGPAunderlgm)
+exp(coef(HSGPAunderlgm))
+set.seed(222)
+HSGPAunderlgm_re <- glm(APR ~APRRATE_PROGRAM+APRRATE_HSNAME+GENDER+codeHSGPA+codeHSGPA*codeEthnicity, data = TrainingSet, family="binomial")
+summary(HSGPAunderlgm_re)
+library(tidyverse)  # data manipulation and visualization
+library(modelr)     # provides easy pipeline modeling functions
+library(broom)      # helps to tidy up model outputs
+
+P_value <- tidy(HSGPAunderlgm_re)
+#coefficient
+coef1 <- exp(coef(HSGPAunderlgm_re))
+coef_table <- knitr::kable(coef1)
+coef_table
+#confint(HSGPAunderlgm_re)
+vari_imp <- knitr::kable(caret::varImp(HSGPAunderlgm_re))
+vari_imp
+
+#accuracy 
+p_1 <- predict(HSGPAunderlgm_re, TrainingSet, type="response")
+#head(p_1,10)
+#head(TrainingSet,10)
+pred_1 <- ifelse(p_1>0.5, 1,0)
+tab_1 <- table(Predicted=pred_1, Actural=TrainingSet$APR)
+tab_1
+round(sum(diag(tab_1))/sum(tab_1),4) # 0.2876387
+
+#test data
+p_2 <- predict(HSGPAunderlgm_re, TestingSet, type="response")
+#head(p_2,10)
+#head(TestingSet,10)
+pred_2 <- ifelse(p_2>0.5, 1,0)
+tab_2 <- table(Predicted=pred_2, Actural=TestingSet$APR)
+tab_2
+round(sum(diag(tab_2))/sum(tab_2),4) #0.0.2761905
+
+### goodness of fit
+with(HSGPAunderlgm_re, pchisq(null.deviance - deviance, df.null-df.residual, lower.tail=F))#p-value==  1.127255e-80
+
+
+```
+
+
+
+```{r eval=FALSE, include=FALSE}
+# building new data set
+library(dplyr)
+# for admitted 2021 FTIC
+
+#test_2021FTICadmission <- HSGPAunder %>% 
+#  select(TIER,HIGH_SCHOOL_NAME="HS_NAME")
+HS_NAME_APR <- HSGPAunder3.5_dataset_rate4 %>% select(HIGH_SCHOOL_NAME, APRRATE_HSNAME,CountTotalHS_NAME="Sum.y" )
+HS_NAME_APR <- HS_NAME_APR[!duplicated(HS_NAME_APR),]
+test_HSNAMEAPR <- merge(HS_NAME_APR, HSGPAunder_new, by.x="HIGH_SCHOOL_NAME",by.y="HS_NAME", all.y=T) 
+test_HSNAMEAPR$codeEthnicity <- as.factor(test_HSNAMEAPR$codeEthnicity)
+
+PROGRAM_APR <- HSGPAunder3.5_dataset_rate4 %>% select(codePROGRAM1, APRRATE_PROGRAM,CounTotal_HSGPAunder="Sum" ,AveHSGPA_NoAPR,CountNoAPR,AveHSGPA_YesAPR,CountYesAPR)
+PROGRAM_APR <- PROGRAM_APR[!duplicated(PROGRAM_APR),]
+test_APRRATE_PROGRAM <- merge(PROGRAM_APR, test_HSNAMEAPR, by.x=c("codePROGRAM1"),by.y=c("codePROGRAM1"), all.y=T)
+test_APRRATE_PROGRAM <- test_APRRATE_PROGRAM[!duplicated(test_APRRATE_PROGRAM$UWFID),]
+test_APRRATE_PROGRAM$codePROGRAM <- as.factor(test_APRRATE_PROGRAM$codePROGRAM1)
+# for APRAveHSGPA, need to average GPA by program
+HSGPA_by_program <- HSGPAunder_new %>% group_by(codePROGRAM1) %>% dplyr::summarise(APRAveHSGPA_PROGRAM=mean(HS_OFFER_GPA,na.rm=T))
+test_APRRATE_PROGRAM1 <- merge(test_APRRATE_PROGRAM,HSGPA_by_program,by="codePROGRAM1",all.x = T)
+test_APRRATE_PROGRAM1[which(is.na(test_APRRATE_PROGRAM1$APRRATE_HSNAME)),"APRRATE_HSNAME"] <- 0
+test_APRRATE_PROGRAM1[which(is.na(test_APRRATE_PROGRAM1$APRRATE_PROGRAM)),"APRRATE_PROGRAM"] <- 0
+
+# APRRATE_BYHS
+HS_meanPGA <- HSGPA_data %>% group_by(codeHSGPA) %>% dplyr::summarise(meanAPRRATE_HS=mean(APRRATE_HSNAME, na.rm=T), count=n())
+HS_meanPGA
+APRRAT_HS <- HSGPAunder3.5_dataset_rate4 %>% group_by(codeCOLLEGE) %>% dplyr::summarise(meanAPR=mean(APRRATE_PROGRAM,na.rm=T),Count=n())
+APRRAT_HS
+#dataset
+APRRAT_test_APRRATE_PROGRAM1 <- test_APRRATE_PROGRAM1 %>% group_by(codeHSGPA,codePROGRAM1) %>% dplyr::summarise(meanAPR=mean(APRRATE_PROGRAM,na.rm=T),Count=n())
+APRRAT_test_APRRATE_PROGRAM1
+
+test_APRRATE_PROGRAM1[(test_APRRATE_PROGRAM1$codeHSGPA=="GPA<=3.10" & test_APRRATE_PROGRAM1$APRRATE_HSNAME==0),"APRRATE_HSNAME"] <- 61.80
+test_APRRATE_PROGRAM1[(test_APRRATE_PROGRAM1$codeHSGPA=="GPA<=3.20" & test_APRRATE_PROGRAM1$APRRATE_HSNAME==0),"APRRATE_HSNAME"] <- 62.90
+test_APRRATE_PROGRAM1[(test_APRRATE_PROGRAM1$codeHSGPA=="GPA<=3.30" & test_APRRATE_PROGRAM1$APRRATE_HSNAME==0),"APRRATE_HSNAME"] <- 63.20
+test_APRRATE_PROGRAM1[(test_APRRATE_PROGRAM1$codeHSGPA=="GPA<=3.40" & test_APRRATE_PROGRAM1$APRRATE_HSNAME==0),"APRRATE_HSNAME"] <- 62.90
+test_APRRATE_PROGRAM1[(test_APRRATE_PROGRAM1$codeHSGPA=="GPA<3.50"  & test_APRRATE_PROGRAM1$APRRATE_HSNAME==0),"APRRATE_HSNAME"] <- 64.80
+test_APRRATE_PROGRAM1[(test_APRRATE_PROGRAM1$codePROGRAM1=="ISS"  & test_APRRATE_PROGRAM1$APRRATE_PROGRAM==0),"APRRATE_PROGRAM"] <- 62.80 #codeHSGPA3.29
+```
+
+```{r include=FALSE}
+####################################################################
+###### replacing APRRATE_HS using codeHSGPA and APRRATE_PROGRAM ###
+###################################################################
+# prediction data
+glimpse(HSGPAunder_new) #codePROGRAM1,codeHSGPA,HS_NAME,HS_NAME
+glimpse(HSGPAunder3.5_dataset_rate4) #APRRATE_HSNAME,codeHSGPA,codePROGRAM1,APRRATE_PROGRAM,HIGH_SCHOOL_NAME
+program1 <- HSGPAunder3.5_dataset_rate4 %>% select(codePROGRAM1, APRRATE_PROGRAM)
+program2 <-program1[!duplicated(program1),]
+program3 <- program2[!is.na(program2$codePROGRAM1),]
+# for replacing
+programa <- HSGPAunder3.5_dataset_rate4 %>% select(codeHSGPA,codePROGRAM1, APRRATE_PROGRAM)
+programb <-programa[!duplicated(programa),]
+programc <- programb[!is.na(programb$codePROGRAM1),]
+colnames(programc) <- c("recodeHSGPA","recodePROGRAM","recodeAPRRATE_PROGRAM")
+
+# HSPAR
+hsname <- HSGPAunder3.5_dataset_rate4 %>% select(HIGH_SCHOOL_NAME,APRRATE_HSNAME)
+hsname1 <- hsname[!duplicated(hsname),]
+hsname2 <- hsname1[!is.na(hsname1$HIGH_SCHOOL_NAME),]
+merge1 <- merge(HSGPAunder_new, program3, by.x=c("codePROGRAM1"), by.y="codePROGRAM1", all.x=T)
+merge1[!duplicated(merge1),]
+
+merge2 <- merge(merge1, hsname2, by.x=c("HS_NAME"), by.y=c("HIGH_SCHOOL_NAME"), all.x=T)
+merge3 <- merge(merge2,programc, by.x=c("codeHSGPA","codePROGRAM1"),by.y=c("recodeHSGPA","recodePROGRAM"), all.x=T)
+
+merge3[which(is.na(merge3$APRRATE_HSNAME)), "APRRATE_HSNAME"] <- 0
+merge3[which(is.na(merge3$recodeAPRRATE_PROGRAM)), "recodeAPRRATE_PROGRAM"] <- 0
+
+merge3$replacedAPRRATE_HSNAME <- ifelse(merge3$APRRATE_HSNAME==0, merge3$recodeAPRRATE_PROGRAM, merge3$APRRATE_HSNAME)
+merge3[which(is.na(merge3$replacedAPRRATE_HSNAME)),"replacedAPRRATE_HSNAME"] <- 0
+merge3$replacedAPRRATE_HSNAME <- ifelse(merge3$replacedAPRRATE_HSNAME==0, merge3$APRRATE_PROGRAM, merge3$replacedAPRRATE_HSNAME)
+merge3[merge3$codePROGRAM1=="ISS","replacedAPRRATE_HSNAME"] <- 63.52577# average program APR for CEPS
+merge3[merge3$codePROGRAM1=="ISS","APRRATE_PROGRAM"] <- 63.52577# average program APR for CEPS
+
+#merge3[which(is.na(merge3$APRRATE_PROGRAM)),]
+merge5 <- merge3 %>% select(1:30,APRRATE_HSNAME="replacedAPRRATE_HSNAME")
+sapply(merge5, pMISS)
+
+test_APRRATE_PROGRAM1 <- merge5
+
+```
+
+### Predicting a Probability of APR among 2021 FTIC - table(sample)
+
+```{r}
+# prediction
+#HSGPAunderlgm_re$xlevels[["codeHSGPA"]] <- union(HSGPAunderlgm_re$xlevels[["codeHSGPA"]], levels(test_HSNAMEAPR$codeHSGPA))
+#HSGPAunderlgm_re$xlevels[["codeEthnicity"]] <- union(HSGPAunderlgm_re$xlevels[["codeEthnicity"]], levels(test_HSNAMEAPR$codeEthnicity))
+# prediction
+test_pre <- round(predict(HSGPAunderlgm_re, test_APRRATE_PROGRAM1, type="response"),4)
+#head(test_pre,10)
+#head(test_HSNAMEAPR,10)
+Results_test2021admitted <- cbind(test_pre, test_APRRATE_PROGRAM1)
+
+results_table_all <- Results_test2021admitted %>%
+  mutate(codeProb_APR1=ifelse(test_pre<0.5,"high-risk",
+                             ifelse(test_pre<0.75,"moderate-risk","low-risk"))) %>% 
+   mutate(codeProb_APR=ifelse(test_pre<0.5,"Pr<0.50",
+                             ifelse(test_pre<0.75,"0.50<=Pr<0.75","Pr>=0.75"))) %>% 
+  select(UWFID,34,33,Prob_APR="test_pre",Admitted_PROGRAM="codePROGRAM1",PROGRAM_CODE,PROGRAM_DESC,APR_PROGRAM="APRRATE_PROGRAM",
+         HS_NAME,APR_HS_NAME="APRRATE_HSNAME",TIER,HS_OFFER_GPA,HS_CORE_GPA,COLLEGE,GENDER,
+         COUNTY,COUNTY_GROUP,CNTY1,AGE_AT_ENTRY,contains("PELL"),codeHSGPA,codeEthnicity="codeEthnicity1",APR)
+
+#%>% 
+#  select(UWFID,Prob_APR="test_pre",Sum_underHSGPA3.5="Sum.y",TIER,HIGH_SCHOOL_NAME,APRRATE_HSNAME,HS_OFFER_GPA,codeHSGPA,COLLEGE,CURRICULUM_DEPT,PROGRAM_DESC,GENDER,codeEthnicity,APR)
+write.csv(results_table_all,"results_table_all_02092021.csv")
+library(DT)
+results_table <- datatable(results_table_all, extensions = "Buttons",caption = "Probability of APR",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25,scrollY=800,scrollX=TRUE))
+
+results_table
+```
+
+### APR Rates among GPA under3.5 by High School Name
+
+```{r}
+library(highcharter)
+library(dplyr)
+library(readr)
+#data from 2015to19
+HSGPAunder3_5rate2 <- read_csv("HSGPAunder3.5_dataset_rate4.csv") %>% select(HIGH_SCHOOL_NAME,APR_Rate_by_HS_Name="APRRATE_HSNAME",Sum_HS_Name="Sum.y")
+HSGPAunder3_5rate21 <- HSGPAunder3_5rate2[!duplicated(HSGPAunder3_5rate2),]
+#results
+Results_table_1 <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/Results_table_1.csv") %>% select(UWFID,Prob_APR)
+HSGPAunder_2 <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/V1HSGPAunder3_5.csv")
+#filter for 2021
+admittedHSNAME <- merge(HSGPAunder3_5rate21, HSGPAunder_2, by.x="HIGH_SCHOOL_NAME", by.y="HS_NAME",all.y=T)
+admittedHSNAME1 <- merge(admittedHSNAME,Results_table_1,by="UWFID", all.x=T)
+myhchart <- admittedHSNAME1 %>% select(Sum_HS_Name,APR_Rate_by_HS_Name_percentage="APR_Rate_by_HS_Name",HIGH_SCHOOL_NAME)
+fig_b3 <- hchart(myhchart, "scatter", hcaes(x = Sum_HS_Name, y = APR_Rate_by_HS_Name_percentage , group = HIGH_SCHOOL_NAME ))
+fig_b3
+```
+
+### Pivot Table-Prediction
+
+```{r}
+results_table_all$codeProb_APR <- as.factor(results_table_all$codeProb_APR)
+results_table_all <- results_table_all %>% arrange(-Prob_APR)
+library(rpivotTable)
+rpivotTable(results_table_all, aggregatorName = "Count",
+            rows = c("COLLEGE"),
+            
+            cols = c("codeProb_APR"),
+           
+            subtotals = T, rendererName = "Table With Subtotal")
+
+```
+
+
+```{r  include=FALSE}
+library(readr)
+hist_HSNAME <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE_ALL_ENR_up2020.csv") %>% 
+  select(COHORT_YEAR,APR,HIGH_SCHOOL_NAME,ENTRY_PROGRAM,GPA_HIGHSCHOOL) %>% filter(COHORT_YEAR<=2019202, COHORT_YEAR>=20172018) %>% na.omit() %>% 
+  mutate(codeHSGPA=ifelse(GPA_HIGHSCHOOL<3.500,"<3.50",">=3.50"))
+sapply(hist_HSNAME, function(x) sum(is.na(x)))
+
+hist_HSNAME_under3.5 <- hist_HSNAME %>% filter(codeHSGPA=="<3.50")
+
+new_HSNAME <- HSGPAunder_new %>% select(HS_NAME)
+```
+### DATA Summary
+
+* Total number of FTIC from 2015 to 2020 is 6,851.
+* The total with HS GPA under 3.5 is 1,955.
+* For this analysis, 1,900 were used after removing Tier 1 and NA FTIC.
+* The train and test data sets are 80% and 20% (1,521 and 379).
+* Only these FTIC are used when calculating APR by Program and HS name.
+* The average program APR by HS GPA was substituted for HS names with no history.
+* For example, if a student was admitted to MAT with no HS name history, then their APR by HS name would be replaced with the average of the program APR for the same GPA group.
+* Program Code: Updated Cyber-security and Computer Science codes as "CYB" and "CSC" in the Admitted FTIC program codes (old code was "CPS").
+* The number of unique high school names is `r  length(unique(CSE_ALL_ENR_up2020$HIGH_SCHOOL_NAME))`.
+* The number used for the prediction is `r  length(unique(HSGPAunder3.5_DF$HIGH_SCHOOL_NAME))`.
+* The number of unique high school names for HS GPA under 3.5 for 2021 FTIC is `r  length(unique(HSGPAunder_new$HS_NAME))`.
+* 173 out of 272 high schools did not have recorded APRs for HS GPA under 3.5.
+
+
+### NEW High School Name & Average HS GPA (Overall 2021 FTIC)
+
+```{r}
+library(readr)
+HSNAME_recorded <- read.csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE_ALL_ENR_up2020.csv", stringsAsFactors=FALSE) %>% select(HIGH_SCHOOL_NAME,GPA_HIGHSCHOOL) %>% group_by(HIGH_SCHOOL_NAME) %>% dplyr::summarise(meanHSGPA_recorded=mean(GPA_HIGHSCHOOL,na.rm=T), Counts_recorded=n())
+colnames(HSNAME_recorded) <- c("HIGH_SCHOOL_NAME","HSGPA_Recorded","Counts_recorded")
+
+HSNAME_2021 <- read.csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/over3_0_Tiers.csv", stringsAsFactors=FALSE) %>% select(HS_NAME,HS_OFFER_GPA ) %>% 
+  group_by(HS_NAME) %>% dplyr::summarise(meanHSGPA_2021=mean(HS_OFFER_GPA,na.rm=T), Counts_2021=n())
+colnames(HSNAME_2021) <- c("HIGH_SCHOOL_NAME_2021","HSGPA2021","Counts_2021")
+
+All_HSNAME <- merge(HSNAME_recorded,HSNAME_2021,by.x="HIGH_SCHOOL_NAME",by.y="HIGH_SCHOOL_NAME_2021",all=T)
+All_HSNAME[which(is.na(All_HSNAME$Counts_recorded)),"Counts_recorded"] <- 0
+All_HSNAME[which(is.na(All_HSNAME$Counts_2021)),"Counts_2021"] <- 0
+All_HSNAME1 <- All_HSNAME %>% mutate(NEW_HSNAME = ifelse((Counts_recorded==0 & Counts_2021>0) , "Yes","No"))
+
+#under3.5
+HSNAME_2021_under3.5 <- read.csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/over3_0_Tiers.csv", stringsAsFactors=FALSE) %>% select(HS_NAME,HS_OFFER_GPA ) %>% 
+  filter(HS_OFFER_GPA<3.500) %>%  group_by(HS_NAME) %>% dplyr::summarise(meanHSGPAunder3.5_2021=mean(HS_OFFER_GPA,na.rm=T), Counts_2021under3.5=n())
+colnames(HSNAME_2021_under3.5) <- c("HIGH_SCHOOL_NAME_2021under3.5","HSGPA2021uner3.5","Counts_2021under3.5")
+
+All_HSNAME2 <- merge(All_HSNAME1,HSNAME_2021_under3.5,by.x="HIGH_SCHOOL_NAME",by.y="HIGH_SCHOOL_NAME_2021under3.5",all=T)
+All_HSNAME2[which(is.na(All_HSNAME2$Counts_2021under3.5)),"Counts_2021under3.5"] <- 0
+All_HSNAME3 <- All_HSNAME2 %>% mutate(Ratio_HSGPA3.5= round(Counts_2021under3.5/Counts_2021,4))
+#write.csv(All_HSNAME3,"All_HSNAMEs_aveHSGPA_2021.csv")
+library(DT)
+HSNAME_table <- datatable(All_HSNAME3, extensions = "Buttons",caption = "Average HS GPA by HS Name",
+          filter = "top",
+          options = list(scrollX=TRUE,dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25,scrollY=800,scrollX=TRUE))
+
+HSNAME_table
+```
+
+### High School Achievements...
+
+```{r eval=FALSE, include=FALSE}
+#all high shcool name from 2015 to 2020
+HSNAME_recorded_all <- read.csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE_ALL_ENR_up2020.csv", stringsAsFactors=FALSE)
+HSNAME_recorded_all$HIGH_SCHOOL_NAME <- toupper(HSNAME_recorded_all$HIGH_SCHOOL_NAME)
+
+HS_Data_achievement <- read.csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/HS_Data_sum.csv") %>% arrange()
+HS_Data_achievement$HS_State <- rep("FL")
+HS_Data_achievement$HIGH_SCHOOL_NAME <- toupper(HS_Data_achievement$School_Name)
+All_HSNAME_achievement <- merge(HSNAME_recorded_all,HS_Data_achievement, by.x="HIGH_SCHOOL_NAME", by.y="HIGH_SCHOOL_NAME", all.x =T )
+# for FTIC 2021
+HSNAME_2021$HIGH_SCHOOL_NAME <- toupper(HSNAME_2021$HIGH_SCHOOL_NAME_2021)
+All_HSNAME_achievement2021 <- merge(HSNAME_2021,HS_Data_achievement, by.x="HIGH_SCHOOL_NAME", by.y="School_Name", all.x =T )
+
+All_HSNAME_achievement <- merge(All_HSNAME3,HS_Data_achievement, by.x="HIGH_SCHOOL_NAME", by.y="School_Name", all.x =T ) #77.835% missing values all HS
+apply(All_HSNAME_achievement, 2, pMISS)
+
+results_table_all$School_Name <- toupper(results_table_all$HIGH_SCHOOL_NAME)
+All_results_HSNAME_Achievement <- merge(results_table_all, HS_Data_achievement, by.x="School_Name",by.y="School_Name", all.x=T)# 69.069% missing values under3.5 HS
+hist(All_HSNAME_achievement$Sum_Achievement)
+```
+
+

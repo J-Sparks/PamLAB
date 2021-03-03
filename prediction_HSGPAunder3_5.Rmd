@@ -1,0 +1,97 @@
+---
+title: "Prediction-admitted data Fall 2021"
+author: "JS"
+date: "2/2/2021"
+output:
+  html_document:
+    df_print: paged
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r   include=FALSE}
+library(dplyr)
+library(readr)
+HSGPAunder <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/3.0-3.5_Tiers.csv", 
+    col_types = cols(Column1 = col_skip())) %>% select(UWFID,TIER="Pred_Tier",HS_OFFER_GPA,BEST_SCORE,CURRICULUM_COLL,CURRICULUM_DEPT,RACE,TRANSFER_HOURS_EARNED,
+                                                       HS_CORE_GPA,GENDER)
+pMISS <- function(x){sum(is.na(x))/length(x)*100}
+apply(HSGPAunder,2, pMISS)
+##HSGPA rank
+HSGPAunder <- HSGPAunder %>% mutate(codeHSGPA=ifelse(HS_OFFER_GPA<=3.1000,"GPA<=3.10",
+                                                     ifelse(HS_OFFER_GPA<=3.20,"GPA<=3.20",
+                                                            ifelse(HS_OFFER_GPA<=3.30,"GPA<=3.30",
+                                                                   ifelse(HS_OFFER_GPA<=3.40,"GPA<=3.4","GPA<3.5")))))
+
+#Replace college
+
+HSGPAunder <- HSGPAunder %>% mutate(COLLEGE=ifelse(CURRICULUM_COLL==0,"UNA",
+                                                   ifelse(CURRICULUM_COLL=="A","HMCSE",
+                                                          ifelse(CURRICULUM_COLL=="P","CEPS",
+                                                                 ifelse(CURRICULUM_COLL=="H","CASSH",
+                                                                        ifelse(CURRICULUM_COLL=="M","UKCOH",
+                                                                               ifelse(CURRICULUM_COLL=="B","COB","NA")))))))
+# transfer hours NA==0
+HSGPAunder[which(is.na(HSGPAunder$TRANSFER_HOURS_EARNED)),"TRANSFER_HOURS_EARNED"] <- 0
+# HS_CORE_GPA
+HSGPAunder[which(is.na(HSGPAunder$HS_CORE_GPA)),"HS_CORE_GPA"] <- 0
+# RACE NA=NA
+HSGPAunder[which(is.na(HSGPAunder$RACE)),"RACE"] <- "NA"
+unique(HSGPAunder$codeRACE)
+HSGPAunder$codeRACE <- HSGPAunder$RACE
+HSGPAunder[HSGPAunder$codeRACE == "W","codeRACE"] <- "White"
+HSGPAunder[HSGPAunder$codeRACE == "B","codeRACE"] <- "African American"
+HSGPAunder[HSGPAunder$codeRACE == "A","codeRACE"] <- "Asian"
+HSGPAunder[HSGPAunder$codeRACE == "I","codeRACE"] <- "Indian"
+twoormore <- c("I,W","P,W","B,W","B,P","A,W","A,B")
+my_no_grade <- c("S","P","XX","I","I*","W")
+HSGPAunder$codeRACE <- sapply(HSGPAunder[,11], function(x) replace(x, x %in% c("I,W","P,W","B,W","B,P","A,W","A,B"), 99))
+gsub(99,"TWOorMORE", HSGPAunder$codeRACE)
+unique(HSGPAunder$codeRACE)
+```
+
+Column {.tabset .tabset-fade data-width=650}
+-----------------------------------------------------------------------
+
+
+### TIER by High School GPA under 3.5
+
+```{r}
+library(plotly)
+library(dplyr)
+
+HSGPAunder$codeHSGPA <- as.factor(HSGPAunder$codeHSGPA)
+fig_a <- HSGPAunder
+fig_a$TIER <- as.factor(fig_a$TIER)
+
+fig_a <- fig_a %>% count(TIER, codeHSGPA)
+fig_a <- fig_a %>% plot_ly(x= ~TIER, y=~n, color=~codeHSGPA)
+fig_a
+```
+
+### data table
+
+```{r}
+
+```
+
+
+
+Column {.tabset .tabset-fade }
+-----------------------------------------------------------------------
+
+### HS GPA by College
+
+```{r}
+fig_b <- HSGPAunder %>% count(COLLEGE, codeHSGPA)
+fig_b <- fig_b %>% plot_ly(x= ~COLLEGE, y=~n, color=~codeHSGPA)
+fig_b
+```
+
