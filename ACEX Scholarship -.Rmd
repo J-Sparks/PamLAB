@@ -1,0 +1,417 @@
+---
+title: "Scholarships - ACEX"
+author: "PAM Lab - UWF"
+date: "3/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+setwd("G:/My Drive/#1_Jay's Space/Scholarships-YOY")
+library(xfun)
+```
+
+```{r eval=FALSE, include=FALSE}
+# need to select variables and created matching ID with ACEX and data (filter SIF=="Stu_DEMO_DATA_SOURCE")
+library(readr)
+library(dplyr)
+COURSE_STUDENT_INSTRUCTION_SPRING21 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/202101/COURSE_STUDENT_INSTRUCTION_SPRING21.csv") %>% filter(Course_DEMO_TIME_FRAME>=201505) %>% 
+   select(STU_ID,Course_DEMO_TIME_FRAME,contains("term"),Course_CrsTitle, contains("combined"),Course_CrsPrefix,Course_CrsSuffix, contains("number"), contains("award"),contains("credit"))
+write.csv(COURSE_STUDENT_INSTRUCTION_SPRING21, "mycrs_acex.csv")
+
+STU_ENROLLMENT_SPRING21 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/202101/STU_ENROLLMENT_SPRING21.csv") %>%  filter(Stu_DEMO_DATA_SOURCE=="SIF" & Stu_DEMO_TIME_FRAME>= 201505) %>% 
+  select(STU_ID, contains("demo"),contains("major"),Stu_CurrentTermLoad,contains("GPA"), contains("inst"), contains("total"),contains("credit"), contains("semester"),contains("coll"),contains("depart")) %>% arrange(Stu_DEMO_TIME_FRAME)
+write.csv(STU_ENROLLMENT_SPRING21, "myenc_acex.csv")
+
+
+STUDENT_DEGREE_SPRING21 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/202101/STUDENT_DEGREE_SPRING21.csv") %>%  select(STU_ID,  contains("data"), Deg_TermGranted, contains("desc"), contains("major"), contains("banner"))
+write.csv(STUDENT_DEGREE_SPRING21, "mydeg_acex.csv")
+
+CSE_MATCH_IDS_1_ <- read_csv("C:/Users/jsparks3/Downloads/CSE_MATCH_IDS (1).csv") # FTIC2015 to 2019
+
+library(readxl)
+ACEX_Data_by_Cohort2_22_21 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/ACEX/ACEX Data by Cohort2-22-21.xlsx")
+ACEX_Data_by_Cohort2_22_211 <- ACEX_Data_by_Cohort2_22_21[!is.na(ACEX_Data_by_Cohort2_22_21$`Aid Year`),]
+#colSums(is.na(ACEX_Data_by_Cohort2_22_211))
+
+Final_id_cohort <- Final_acex_enc_DF %>% select(uwfid, cohort_year) %>% mutate(Cohort=ifelse(cohort_year=="17-18", "FTIC2017",
+                                                                                             ifelse(cohort_year=="18-19","FTIC2018",
+                                                                                                    ifelse(cohort_year=="19-20", "FTIC2019","FTIC2020")))) %>% select(uwfid, Cohort)
+Final_id_cohort_nodup <- Final_id_cohort[!duplicated(Final_id_cohort),] #1709
+Final_acex_enc_DFtwo <- merge( Final_acex_enc_DF, Final_id_cohort_nodup, by=c("uwfid"), all.x = T)
+
+Final_acex_enc_DF3 <- Final_acex_enc_DFtwo[!is.na(Final_acex_enc_DFtwo$Cohort),] %>% group_by(uwfid) %>% arrange(Index)
+# export data
+write.csv(Final_acex_enc_DF3, "V1_Final_acex_enc_DF.csv") 
+```
+
+## 1. Questions:
+
+  1. How many FTIC with AXEC:
+  
+    a. maintained it and stayed at UWF?
+    b. maintained it and left UWF?
+    c. lost it and stayed at UWF?
+    d. lost it and left UWF?
+    
+  2. What are the proportions of A and B+C+D?
+  
+  3. What factors best predict an FTIC with AXEC being in A as opposed to B, C, or D?
+
+
+## 2. Requirements to Remain Eligible for Financial Aid
+
+  * GPA: 3.00 cumulative UWF GPA
+  * Full-time enrollment of 12+ credit hours (not summer)
+  * At least 30 credit hours / academic year
+  * Not be reinstated
+  
+ [Freshman Scholoarships-UWF](https://uwf.edu/admissions/undergraduate/cost-and-financial-aid/awards-and-scholarships/freshman/)
+
+## 3. Factors should be Considered
+- Prior Hours
+- Gender
+- CRS+GPA: maintained requirements
+- Impact of switched majors: scholarship and extra hours (needs info)
+
+## 4. Cleaning Data
+- Total of 3,645 FTIC ACEX cases 
+- Total of 1,935 unique FTICs in the ACEX data (FT17 to FT20)
+- 555 FTIC ACEX (2020) were removed for lack of enrollment information (enrollments data ends Fall 2020)
+- 36 UWFID with ACEX but not in CSE data were removed
+- Total of 591 FTICs were removed from ACEX data 
+- Total of 1,344 FTICs were used for this document
+- For degree information, the most recent (Fall 2020) was used 
+- For dual-degrees, the first alphabetically was used
+- ID = 970522062 is FTIC 2017, but was mislabeled 2019; this was corrected
+
+
+```{r read data, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+library(readr)
+library(dplyr)
+library(readxl)
+#used dataname
+myenc_acex <- read_csv("myenc_acex.csv", 
+    col_types = cols(X1 = col_skip())) %>% filter(Stu_DEMO_TIME_FRAME== 201708 | Stu_DEMO_TIME_FRAME ==201808 | Stu_DEMO_TIME_FRAME ==201908 |Stu_DEMO_TIME_FRAME==202008)
+
+#used dataname
+mycrs_acex <- read_csv("mycrs_acex.csv", 
+    col_types = cols(X1 = col_skip()))
+
+
+#used dataname
+mydeg_acex <- read_csv("mydeg_acex.csv", 
+    col_types = cols(X1 = col_skip()))
+
+# Id match
+CSE_MATCH_IDS_1_ <- read_csv("G:/My Drive/#1_Jay's Space/Scholarships-YOY/CSE_MATCH_IDS (1).csv") # FTIC2015 to 2019
+
+
+#used dataname
+mydeg_acex <- read_csv("mydeg_acex.csv", 
+    col_types = cols(X1 = col_skip()))
+
+# usded dataname
+
+
+acex_cleandata <- read.csv("G:/My Drive/#1_Jay's Space/Scholarships-YOY/acex_cleandata.csv")
+
+# used final data
+
+Final_acex_enc_DF <- read_csv("V1_Final_acex_enc_DF.csv") %>% select(-1)
+
+
+#length(unique(Final_acex_enc_DF$STU_ID))
+#xtabs(~Final_acex_enc_DF$cohort_year+ Final_acex_enc_DF$Num_aidYear)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+head(acex_cleandata[,-1])
+```
+
+### Numbers of FTIC by Aid Years (before removed NA) 
+
+```{r message=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+library(scales)
+acex_cleandata <- read.csv("G:/My Drive/#1_Jay's Space/Scholarships-YOY/acex_cleandata.csv")
+#length(unique(acex_cleandata$uwfid))
+
+
+library(plotly)
+cleannames_ACEX1_fig1 <- acex_cleandata %>% group_by(cohort_year, Num_aidYear ) %>% dplyr::summarise(count=n()) %>% 
+  plot_ly( x=~cohort_year, y=~ count, color=~ Num_aidYear, type="bar" ) %>% 
+  layout( xaxis=list(title="COHORT YEAR"), yaxis=list(title="Counts by Aid Year"), barmode="stack")
+
+cleannames_ACEX1_fig1
+
+```
+
+### ACEX Offered and Paid Amounts by FTIC (before removed NA)
+
+
+```{r}
+Summary_acex <- acex_cleandata %>% group_by(cohort_year, aid_year) %>% dplyr::summarise(Count=n(), SumOffered=sum(acex_offered), SumPaid=sum(acex_paid), .groups='drop') %>%  mutate(Diff_YOY= SumPaid -lag(SumPaid, default = SumPaid[1])) %>%  mutate(Diff_YOY1= Count -lag(Count, default = Count[1]))
+
+
+SumOffered <- dollar(Summary_acex$SumOffered)
+Summary_acex$SumOffered <- SumOffered
+SumPaid <- dollar(Summary_acex$SumPaid)
+Summary_acex$SumPaid <- SumPaid
+Diff_YOY <- dollar(Summary_acex$Diff_YOY)
+Summary_acex$Diff_YOY <- Diff_YOY
+
+#%>%  arrange(-Count)
+knitr::kable(Summary_acex, caption = " Numbers of Cohort vs. Sum of Aid Amounts (before NA)")
+# loosing by Tier
+```
+
+
+### ACEX FTIC by Tiers (before removed NA)
+
+```{r summary by tier, echo=FALSE, message=FALSE, warning=FALSE}
+
+Summary_acex_tiers <- acex_cleandata %>% group_by(cohort_year,tier,Num_aidYear) %>% dplyr::summarise(Count=n(),SumOffered=sum(acex_offered), SumPaid=sum(acex_paid)) %>%  mutate(Diff_YOY= SumPaid -lag(SumPaid, default = SumPaid[1])) %>%  mutate(Diff_YOY1= Count -lag(Count, default = Count[1]))
+
+SumOffered <- dollar(Summary_acex_tiers$SumOffered)
+Summary_acex_tiers$SumOffered <- SumOffered
+SumPaid <- dollar(Summary_acex_tiers$SumPaid)
+Summary_acex_tiers$SumPaid <- SumPaid
+Diff_YOY <- dollar(Summary_acex_tiers$Diff_YOY)
+Summary_acex_tiers$Diff_YOY <- Diff_YOY
+
+#Summary table
+library(DT)
+summary_acex_tiers_DT <- datatable(Summary_acex_tiers, extensions = "Buttons",caption = "ACEX-FTIC Trends by Tiers",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25) )
+summary_acex_tiers_DT
+```
+
+
+
+```{r cleaned data, eval=FALSE, include=FALSE}
+library(rvest)
+library(tidyverse)
+library(janitor)
+colSums(is.na(cleannames_ACEX1))
+cleannames_ACEX3 <- cleannames_ACEX1[, c(9:14)] %>% replace(is.na(.),0)
+cleannames_ACEX4 <- cleannames_ACEX1[, c(1:8)]
+cleannames_ACEX1 <- cbind(cleannames_ACEX4,cleannames_ACEX3) %>% group_by( uwfid ) %>%  mutate(Num_aidYear=row_number())
+AidYear <- rep("AidYear")
+cleannames_ACEX1$Num_aidYear <- as.factor(cleannames_ACEX1$Num_aidYear)
+cleannames_ACEX1$Num_aidYear <- paste(AidYear,cleannames_ACEX1$Num_aidYear)
+#write.csv(cleannames_ACEX1,"acex_cleandata.csv")
+```
+
+
+### No information in dataset STU_IDs
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+acex_cleandata_STU_ID <- merge(acex_cleandata, CSE_MATCH_IDS_1_, by.x= "uwfid", by.y= "UNIV_ROW_ID", all.x = T ) %>% group_by(uwfid) %>% arrange(aid_year)%>%  mutate(Index=row_number())
+#colSums(is.na(acex_cleandata_STU_ID))
+cohort_size <- xtabs(~acex_cleandata_STU_ID$cohort_year+ acex_cleandata_STU_ID$Index)
+acex_cleandata_STU_ID_17to19 <- acex_cleandata_STU_ID %>% filter(cohort_year != "20-21")
+NAs <- acex_cleandata_STU_ID_17to19[which(is.na(acex_cleandata_STU_ID_17to19$STU_ID)),] %>% group_by(uwfid) %>% arrange(aid_year) %>% select(-Num_aidYear)
+Missing <- xtabs(~NAs$cohort_year+NAs$aid_year)
+
+acex_cleandata_STU_ID_17to19_nona <- acex_cleandata_STU_ID_17to19[!is.na(acex_cleandata_STU_ID_17to19$STU_ID),] #3,042
+acex_id_only <- acex_cleandata_STU_ID_17to19_nona %>% select(uwfid, STU_ID)
+all_id_acex_only <- acex_id_only[!duplicated(acex_id_only$uwfid),] #,1344
+
+knitr::kable(Missing)
+#NAs
+```
+
+### Total FTIC and aid years after removed NAs
+
+```{r}
+total_sum <- xtabs(~Final_acex_enc_DF$cohort_year + Final_acex_enc_DF$aid_year)
+knitr::kable(total_sum, caption = "Numbers of ACEX Cohort vs. Aid Year")
+```
+
+```{r ACEX, eval=FALSE, include=FALSE}
+CSE_MATCH_IDS_1_[CSE_MATCH_IDS_1_$STU_ID=="DC8FE3C332A7D51614C81674186529DAA8A35825","UNIV_ROW_ID"]
+acex <- acex_cleandata[acex_cleandata$uwfid== "970398543", ]
+acex
+```
+
+### Example: Lost ACEX but Maintaned at UWF
+
+```{r merging two data set, eval=FALSE, include=FALSE}
+
+myenc_acex_term_index <- myenc_acex %>% group_by(STU_ID) %>% arrange(Stu_DEMO_TIME_FRAME) %>%  mutate(Index=row_number())
+
+# all about enc 3,642
+acex_cleandata_STU_ID_enc <- merge(all_id_acex_only, myenc_acex_term_index, by=c("STU_ID"), all.x = T) %>% group_by(STU_ID) %>% arrange(Index) 
+
+# all about acex 3,042
+enc_acex_all_STU_ID <- merge(all_id_acex_only, acex_cleandata_STU_ID, by=c("uwfid","STU_ID"), all.x = T ) %>% group_by(STU_ID) %>% arrange(Index)
+
+enc_acex_all_STU_ID2 <-merge(acex_cleandata_STU_ID_enc,enc_acex_all_STU_ID, by=c("uwfid","STU_ID","Index"), all.x = T)
+
+ex1 <- enc_acex_all_STU_ID2[enc_acex_all_STU_ID2$STU_ID=="DC8FE3C332A7D51614C81674186529DAA8A35825",]
+```
+
+```{r}
+library(DT)
+EX1 <- Final_acex_enc_DF[Final_acex_enc_DF$STU_ID=="DC8FE3C332A7D51614C81674186529DAA8A35825",]
+#EX1
+EX_table <- datatable(EX1)
+EX_table
+```
+
+```{r with degree info, eval=FALSE, include=FALSE}
+
+deg_acex <- merge(all_id_acex_only, mydeg_acex, by="STU_ID", all.x = T) %>% group_by(STU_ID) %>% filter(Deg_TermGranted==max(Deg_TermGranted))
+deg_acex1 <- deg_acex[!duplicated(deg_acex$STU_ID),]
+
+enc_acex_all_STU_ID3 <- merge(enc_acex_all_STU_ID2, deg_acex1, by=c("STU_ID","uwfid"), all.x = T) %>% group_by(uwfid) %>% arrange(Index)
+write.csv(enc_acex_all_STU_ID3, "Final_acex_enc_DF.csv")
+```
+
+```{r used Final_acex_enc_DF, eval=FALSE, include=FALSE}
+ex_deg <- Final_acex_enc_DF[Final_acex_enc_DF$STU_ID=="DC8FE3C332A7D51614C81674186529DAA8A35825",]
+
+ex_deg
+```
+
+### Example: Lost ACEX and left at UWF
+
+```{r}
+library(DT)
+EX2 <- Final_acex_enc_DF[Final_acex_enc_DF$STU_ID=="74AAECD2F0EC58EA82CDE143B404AF0041E24C6E",]
+#EX2
+EX2_table <- datatable(EX2)
+EX2_table
+```
+### Example: Remained ACEX and staying at UWF
+
+```{r}
+EX3 <- Final_acex_enc_DF[Final_acex_enc_DF$STU_ID=="3B6593E215D1346FFB4DC10580A270C8C86DA559",]
+#EX3
+EX3_table <- datatable(EX3)
+EX3_table
+```
+
+### Example: Remained ACEX and graduated 
+
+```{r}
+
+EX4_a <- Final_acex_enc_DF[Final_acex_enc_DF$STU_ID=="111D28829BE5F0630859445BC0BF02028FD59654",]
+#EX4_a
+EX4_a_table <- datatable(EX4_a)
+EX4_a_table
+```
+
+
+### Number of UWF graduates in cohort (Fall 2020)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# method 1 (had fill cohort_year 625 NAs that did not created when it merged)
+Max_index <- Final_acex_enc_DF %>%   group_by(uwfid) %>%  top_n(1, Index) # choose max index by uwfid
+Max_index$B_deg <- ifelse(Max_index$Deg_Desc=="Bachelor",1,0)
+Max_index[which(is.na(Max_index$B_deg)), "B_deg"] <- 0 # for nas
+Max_index <- Max_index %>% mutate(leftUWF=ifelse(B_deg ==1, "Bachelor" ,
+                                                 ifelse((B_deg==0 & Stu_DEMO_TIME_FRAME != 202008), "Dropped", "Stayed")))
+table_degree <-Max_index %>% group_by(Cohort,B_deg ) %>% dplyr::summarise(Count=n())
+knitr::kable(table_degree)
+```
+
+### What is the proportion that maintained ACEX? (FTIC 2017)
+
+  - Total 1,718 ACEX in FTIC 2017 
+  - 516 unique FTIC 2017 earned ACEX in their first year
+  - 151 FTIC earned bachelor degree by Fall 2020
+  - 23 of 151 were in graduate programs
+
+```{r cleaningFTIC2017, eval=FALSE, include=FALSE}
+#create B-deg
+FTIC2017_YOY <- Final_acex_enc_DF %>% filter(Cohort=="FTIC2017") %>% mutate(B_deg=ifelse(Deg_Desc=="Bachelor","1","0"))
+FTIC2017_YOY[which(is.na(FTIC2017_YOY$B_deg)), "B_deg"] <- "0"
+#create earned hours by year
+FTIC2017_YOY_up <- FTIC2017_YOY %>% group_by(uwfid) %>% mutate(EarnedHrs_Year = Stu_TotalInstHours - lag(Stu_TotalInstHours, default = Stu_TotalInstHours[1])) %>%group_by(uwfid) %>%  mutate(TGP_Year=Stu_TotalInstGradePoints- lag(Stu_TotalInstGradePoints, default = Stu_TotalInstGradePoints[1])) %>% mutate(GPA_Year = round(TGP_Year/EarnedHrs_Year,digits = 4))
+#colSums(is.na(FTIC2017_YOY_up))
+negative_values <- FTIC2017_YOY_up %>% filter(EarnedHrs_Year<0) %>% select(uwfid, Index, Stu_DEMO_TIME_FRAME) %>%  mutate(Mater_UWF=rep("Master_UWF"))
+#length(unique(negative_values$uwfid)) #23 in graduate level
+#omit master enc info #1,718 master 23, so 1,695
+Final_FTIC2017 <- anti_join(FTIC2017_YOY_up,negative_values, by=c("uwfid","Index","Stu_DEMO_TIME_FRAME"),all.x=T ) 
+
+ACEX_FTIC2017 <- Final_FTIC2017 %>% group_by(uwfid) %>% mutate(GPACRD_Year= ifelse( (GPA_Year>=3.0000 & EarnedHrs_Year >= 30.0000), "On_Track",
+                                                                                 ifelse((GPA_Year>=3.0000 & EarnedHrs_Year < 30.0000),"On_GPA",
+                                                                                 ifelse((GPA_Year < 3.0000 & EarnedHrs_Year >= 30.0000), "On_CRD30",
+                                                                                        ifelse((GPA_Year < 3.0000 & EarnedHrs_Year < 30.0000), "Off_Track","NA")))))
+
+ACEX_FTIC2017[which(is.na(ACEX_FTIC2017$Num_aidYear)), "Num_aidYear"] <- "No_ACEX"
+ACEX_FTIC2017[which(is.na(ACEX_FTIC2017$GPACRD_Year)), "GPACRD_Year"] <- "ACEX_1st"
+Final_ACEX_FTIC2017 <- ACEX_FTIC2017
+write.csv(Final_ACEX_FTIC2017, "ACEX_FTIC2017.csv")
+```
+
+### Numbers of On-Track FTIC by Terms
+
+- On-Track: earned >=30 credits and kept GPA >= 3.00 per year
+- Off-Track: did not earn >=30 credits and below GPA 3.00 per year
+- On-CRD20: earned >=30 credits but GPA below 3.00 per year
+- On-GPA: kept GPA >= 3.00 but earned less than 30 credits per year
+
+```{r eval=FALSE, message=FALSE, warning=FALSE,  echo=FALSE, include=FALSE}
+library(dplyr)
+ACEX_FTIC2017 <- read.csv("G:/My Drive/#1_Jay's Space/Scholarships-YOY/ACEX_FTIC2017.csv", stringsAsFactors=TRUE) %>% select(-1)
+strange <- ACEX_FTIC2017[ACEX_FTIC2017$GPACRD_Year=="ACEX_1st" & ACEX_FTIC2017$Stu_DEMO_TIME_FRAME=="202008",]
+ACEX_FTIC2017[ACEX_FTIC2017$uwfid=="970518096" & ACEX_FTIC2017$Index=="3", "GPACRD_Year"] <- "Off_Track"
+ACEX_FTIC2017[ACEX_FTIC2017$uwfid=="970527857" & ACEX_FTIC2017$Index=="3", "GPACRD_Year"] <- "Off_Track"
+ACEX_FTIC2017[ACEX_FTIC2017$uwfid=="970525139" & ACEX_FTIC2017$Index=="4", "GPACRD_Year"] <- "Off_Track"
+ACEX_FTIC2017 <- ACEX_FTIC2017 %>% mutate(GPACRD_Year1=ifelse(GPACRD_Year =="On_Track", "On_Track", "Off_Track")) 
+#970525139
+write.csv(ACEX_FTIC2017, "ACEX_FTIC2017_03_05_21.csv")
+
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ACEX_FTIC2017_03_05_21 <- read.csv("G:/My Drive/#1_Jay's Space/Scholarships-YOY/ACEX_FTIC2017_03_05_21.csv", stringsAsFactors=TRUE) %>% select(-1)
+Summary_track <- ACEX_FTIC2017_03_05_21 %>% group_by(GPACRD_Year,Stu_DEMO_TIME_FRAME) %>% dplyr::summarise(Count=n()) %>% 
+  tidyr::pivot_wider(names_from = Stu_DEMO_TIME_FRAME, values_from=Count) %>% replace(is.na(.),0)
+knitr::kable(Summary_track, caption = "CRD+GPA Trend for FTIC 2017")
+
+```
+
+* 215 out of 516 were on-track in the 1st year
+* 183 were on-track in the 2nd year
+* 149 were on-track in the 3rd year (Fall 2020)
+
+
+### Proportion of On-Track FTIC by Year
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary_ontrack <- ACEX_FTIC2017_03_05_21 %>% group_by(GPACRD_Year1, Stu_DEMO_TIME_FRAME) %>% dplyr::summarise(Count=n()) %>% 
+  tidyr::pivot_wider(names_from = GPACRD_Year1, values_from= Count) %>% replace(is.na(.),0) %>% mutate(Not_Fall2020=516-(Off_Track+On_Track)) %>% 
+  mutate(Prop_OnTrack= round(On_Track/516, digits = 4))
+knitr::kable( summary_ontrack, caption = "Proportion of On-track per Year (FTIC 2017)")
+```
+* 41.67% of 516 were on-track in the 1st year (by summer 2018)
+* 35.47% were on-track in the 2nd year (by summer 2019)
+* 28.88% (149) were on-track in the 3rd year (by summer 2020)
+* 29.26% (151) were earned bachelor degree by Fall 2020
+  
+  
+### Proportion of On-track FTIC by Aid-year 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ACEX_ontrack <- ACEX_FTIC2017_03_05_21 %>%filter(Num_aidYear != "AidYear 1")  %>%  group_by(Num_aidYear, GPACRD_Year1) %>% dplyr::summarise(Count=n()) %>% 
+  tidyr::pivot_wider(names_from = GPACRD_Year1, values_from=Count) %>% replace(is.na(.),0) %>% 
+mutate(SumCountAidFT=(Off_Track+On_Track),  Prop_OnTrackAid= round(On_Track/SumCountAidFT, digits = 4))
+knitr::kable(ACEX_ontrack)
+
+```
+* 60.12% (208) of the ACEX were on-track in their 2nd year
+* 58.21% (163) were on-track in their 3rd year
+* 59.41% (120) were on-track in their 4th year
+* 15.95% (56) had lost their ACEX, but were on-track (needs more detail) 
+
