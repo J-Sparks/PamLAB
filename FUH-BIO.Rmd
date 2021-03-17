@@ -1,0 +1,141 @@
+---
+title: "Total University Hours-Change of Program:Biology"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+
+```{css, echo=FALSE}
+.rpivottable{overflow-x: scroll; }
+.DataTable{"scrollX": true}
+.DataTable{"scrollY": true}
+
+```
+
+```{css, echo=FALSE}
+.scroll-100 {
+  max-height: 100px;
+  overflow-y: auto;
+  background-color: inherit;
+}
+```
+
+Impact on Final University Hours among Changed Program - BIO
+=============================================================
+
+
+
+Column {.tabset .tabset-fade }
+-----------------------------------------------------------------------
+
+### What is the average of Final University Hours?
+
+
+**Data Description**  
+
+  + Entered biology from 2014 to 2016 FTIC
+  + Earned bachelor degree
+  + Total 305 FTIC 
+  + Removed 4 FTIC had not information at their 1st year
+  
+**Classification**
+  + Classification at the time when the changes happened
+  
+**Changed Index**
+  + Stayed Program: stayed in entry program
+  + Changed Program: changed program within biology
+  + Changed department: changed department within HMCSE
+  + Chnaged College: changed college
+  
+
+```{r}
+LastTermInfo_all <- read.csv("G:/My Drive/#1_Jay's Space/Graduation-chaningMajorsApp/LastTermInfo_all.csv")
+
+
+```
+
+
+### Summary of Final University Hours (FUH)
+
+```{r}
+### summary on time
+library(dplyr)
+library(gtsummary)
+LastTermInfo1_on <- LastTermInfo_all %>% filter(On_Time =="Yes")
+univsummary <- tbl_summary(LastTermInfo_all[,c("On_Time","FinalUnivHrs","ChangeInd")], by=ChangeInd, 
+                            statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                             all_categorical()~ "{n} /{N} ({p}%)"),
+                                       digits = all_continuous() ~2,
+                            #label = On_Time ~ "Graduation Time",
+                            missing_text = "(Missing)")
+
+univsummary
+```
+### Average FUH by Graudation Time
+
+```{r message=FALSE, warning=FALSE}
+
+unisummary2 <- LastTermInfo_all %>% group_by(On_Time, ChangeInd) %>% dplyr::summarise( MeanFinalUnivHrs=mean(FinalUnivHrs)) %>% tidyr::pivot_wider(names_from = "ChangeInd", values_from="MeanFinalUnivHrs") %>% 
+  replace(is.na(.),0) 
+knitr::kable( unisummary2)
+```
+### summary of Linear Regression
+
+```{r}
+#outliers
+outliers <- boxplot(LastTermInfo_all$FinalUnivHrs, plot = FALSE)$out
+nooutlieres <- LastTermInfo_all
+nooutlieres <- nooutlieres[-which(nooutlieres$FinalUnivHrs %in% outliers),]
+
+
+UniiHrs_lm <- aov(FinalUnivHrs ~  On_Time+FCCol_Class+ChangeInd + On_Time*Deg_Department, data = LastTermInfo_all )
+summary(UniiHrs_lm)
+
+UniiHrs_aov <- aov(FinalUnivHrs ~  On_Time+FCCol_Class+ChangeInd  , data = LastTermInfo_all )
+summary(UniiHrs_aov)
+
+
+UniiHrs <-lm(aov(FinalUnivHrs ~  On_Time+FCCol_Class+ChangeInd  , data = LastTermInfo_all ))
+summary(UniiHrs)
+
+```
+
+
+
+### Tukey Test by Changed Index
+
+```{r}
+tukey <- TukeyHSD(UniiHrs_aov, "FCCol_Class")
+tukey
+
+
+```
+
+### Box Plot for FUH by Changed Index
+
+```{r}
+library(ggplot2)
+#mean(LastTermInfo_all$FinalUnivHrs)
+ggplot(data=nooutlieres, aes( x= ChangeInd, y= FinalUnivHrs)) +
+  geom_jitter(aes(color=ChangeInd)) +
+  geom_boxplot(aes(color=ChangeInd), alpha=0.4)+
+  theme()+
+  labs(title = "Boxplot for FUH by Changed Groups", subtitle = "Entered BIO FTIC 2014 to 2016 (mean FUH: 136)")+
+  geom_hline(yintercept = 135.982, linetype="dashed", color="blue")
+```
+### Tukey plot
+
+```{r}
+ plot(tukey, las=0, col="blue")
+```
+
+### Summary
+
+
+
