@@ -81,7 +81,8 @@ Final_APR_FTIC201819_DF <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021
 ```{r }
 
 Final_APR_FTIC201819_DF <- read.csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/Final_all_1819_APR.csv",stringsAsFactors=TRUE) %>% select(-2)#2137
-
+unique(Final_APR_FTIC201819_DF$ENTRY_PROGRAM)
+  ECE <- Final_APR_FTIC201819_DF %>% filter( ENTRY_PROGRAM == "")
 library(rsample)  # data splitting 
 library(dplyr)    # data transformation
 library(ggplot2)  # data visualization
