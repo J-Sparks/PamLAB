@@ -1,0 +1,94 @@
+---
+title: "ACEX - On/Off Track"
+author: "PAM Lab - UWF"
+date: "3/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+setwd("G:/My Drive/#1_Jay's Space/Scholarships-YOY")
+acex_cleandata <- read.csv("G:/My Drive/#1_Jay's Space/Scholarships-YOY/acex_cleandata.csv")
+CSE_MATCH_IDS <- read_csv("G:/My Drive/#1_Jay's Space/Scholarships-YOY/CSE_MATCH_IDS (1).csv")
+all_tier <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE_ALL_ENR_up2020.csv") %>% select(contains("id"),contains("tier"))
+MATCH_ID_TIER <- merge(CSE_MATCH_IDS, all_tier, by=c("STU_ID", "UNIV_ROW_ID"), all = T)
+write.csv(MATCH_ID_TIER, "MATCH_ID_TIER.csv")
+
+acex_id <- merge(acex_cleandata, CSE_MATCH_IDS, by.x= "uwfid", by.y= "UNIV_ROW_ID", all.x = T)
+glimpse(acex_id)
+acex_id[(acex_id$name=="Charleston, Catelyn" & acex_id$cohort_year == "19-20"), "cohort_year"] <- "17-18"
+acex_id[acex_id$uwfid=="970522062"  , "cohort_year"] <- "17-18"
+
+
+NA_STUID <- acex_id[which(is.na(acex_id$STU_ID)),]
+addmargins( table(NA_STUID$cohort_year, NA_STUID$aid_year))
+length(unique(NA_STUID$uwfid))
+acexwithid <- acex_id[which(!is.na(acex_id$STU_ID)),]  %>%  select(-2)#3042 
+
+
+acexwithid_paid<- acex_id[which(!is.na(acex_id$STU_ID)),]  %>%  select(1,cohort_year,STU_ID,Num_aidYear,10:14, aid_year,tuition_fees_penalties_and_fines,acex_offered) %>% tidyr::separate(Num_aidYear, into=c("Aid", "ID_index"), sep=" ") %>% 
+  arrange(uwfid, ID_index) %>% mutate(TotalBF=( flms_paid + flut_paid ), awardedBF= ifelse(TotalBF>0,"Yes","No"), FullBF=ifelse( (TotalBF>= tuition_fees_penalties_and_fines & tuition_fees_penalties_and_fines !=0) , "Full","notFull")) %>% 
+  mutate(BF1600 = ifelse( (acex_offered==1600 &FullBF=="Full"), "ACEX1600","Others" )) %>% 
+  mutate(chooseHouseingMeal= ifelse(housing+meal_plan>0,"Yes","No" )) %>% 
+  select(1,STU_ID,cohort_year,5:18)
+
+
+acex_all_ids <- acexwithid %>% select(STU_ID, uwfid,cohort_year, tier) %>% unique() %>% na.omit()
+anyNA(acexwithid_paid)
+acex_tiers <- acexwithid %>% select(STU_ID, uwfid, tier) %>% unique() %>% na.omit()
+
+
+
+ 
+acex_enc <- read_csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/202101/STU_ENROLLMENT_SPRING21.csv") %>% filter(Stu_DEMO_DATA_SOURCE =="SIF") %>% filter(Stu_ClassificationCode <= 4) %>% 
+  filter(Stu_DEMO_TIME_FRAME >= 201708) %>% select(STU_ID, Stu_DEMO_TIME_FRAME,Stu_Term,contains("total")) %>% mutate(UWFGPA= round(Stu_TotalInstGradePoints /Stu_TotalInstHours,digits = 4 ))
+
+acex_enc12 <- acex_enc %>% arrange(STU_ID, Stu_DEMO_TIME_FRAME)
+
+STUDENT_DEGREE_SPRING21 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/202101/STUDENT_DEGREE_SPRING21.csv") %>% select(1,2,4,5,  contains("college"), contains("department"), contains("program"), Deg_TermGranted, Deg_Desc) %>% 
+   filter(Deg_Desc=="Bachelor")  %>% group_by(STU_ID) %>% slice(1)
+deg_id <- STUDENT_DEGREE_SPRING21 %>% select(STU_ID, Deg_Desc)
+
+acexid_enc <- merge(acex_all_ids, acex_enc12, by="STU_ID", all.x = T) %>% arrange(STU_ID, Stu_DEMO_TIME_FRAME) %>% 
+  tidyr::separate(Stu_Term, into=c("term", "year"), sep= " ") %>% group_by(STU_ID, term ) %>% mutate(TermIndex=row_number()) %>% 
+  mutate(YearIndex = paste( TermIndex, term, sep=" "))
+
+### for all infor
+
+
+acexid_enc_deg <- merge(acexid_enc, deg_id, vy="STU_ID", all.x = T)  %>% filter(term =="Fall") %>% 
+  arrange(STU_ID,Stu_DEMO_TIME_FRAME) %>% group_by(STU_ID) %>% 
+  mutate(HrsbyYear = Stu_TotalInstHours - lag(Stu_TotalInstHours, default = Stu_TotalInstHours[1])) %>% filter(TermIndex != 1) %>% 
+  mutate(Ontrack= ifelse( ( (UWFGPA>=3.0000 & HrsbyYear>=30)  ), "Yes","No")) %>%  
+   mutate(OnTrackDeg= ifelse( (Ontrack =="No" & Deg_Desc =="Bachelor"), "Yes", Ontrack)) %>% 
+   mutate(OnTrackDeg= ifelse(is.na(OnTrackDeg) , "No", OnTrackDeg )) %>% 
+  group_by(STU_ID) %>% 
+  mutate(ID_index = row_number()) %>% select(uwfid,ID_index,OnTrackDeg,HrsbyYear,UWFGPA, Ontrack)  
+
+## total paid and ontran 
+acex_two <- merge(acexid_enc_deg, acexwithid_paid, by=c("uwfid","STU_ID", "ID_index"), all.y=T) %>% 
+  mutate(OnTrackDeg = ifelse(is.na(OnTrackDeg), "Nodegree", OnTrackDeg))
+
+acex_three <- merge(acex_two, acex_tiers, by=c("uwfid","STU_ID"), all.x=T) %>% arrange(STU_ID, ID_index)
+
+addmargins(table(acex_three$cohort_year,acex_three$aid_year, acex_three$FullBF))
+
+head(acex_two)  
+anyNA(acex_two$tier)
+
+write.csv(acex_three,"acex_three3.csv")
+
+
+```
+
+```{r}
+
+ library(readr)
+ acex_three1 <- read_csv("G:/My Drive/#1_Jay's Space/Scholarships-YOY/acex_three1.csv")
+ 
+ 
+
+```
+
