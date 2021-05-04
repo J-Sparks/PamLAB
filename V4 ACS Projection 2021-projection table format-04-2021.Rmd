@@ -1,0 +1,92 @@
+---
+title: "Untitled"
+author: "Jay Kim"
+date: "4/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ library(readr)
+
+ COURSE_STUDENT_INSTRUCTION_SPRING21 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/202101/COURSE_STUDENT_INSTRUCTION_SPRING21.csv")
+  head(COURSE_STUDENT_INSTRUCTION_SPRING21)
+  
+  library(dplyr)
+  COURSE  <- COURSE_STUDENT_INSTRUCTION_SPRING21 %>% 
+  filter(Course_DEMO_TIME_FRAME>=201705) %>% filter(stringr::str_detect(Course_Term, "Summer..."))
+ 
+ table(COURSE_STUDENT_INSTRUCTION_SPRING21$Course_CrsDepartment, COURSE_STUDENT_INSTRUCTION_SPRING21$Course_CrsDepartmentCode)
+
+
+library(readxl)
+FTIC_202108_202105_Admitted_as_of_3_1_21 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/DATA 202101/Admissions Data 2018-2020/FTIC 202108 202105 Admitted as of 3-1-21.xlsx")
+
+glimpse(FTIC_202108_202105_Admitted_as_of_3_1_21)
+hist(FTIC_202108_202105_Admitted_as_of_3_1_21$BEST_SCORE)
+FTIC2021Temp <- FTIC_202108_202105_Admitted_as_of_3_1_21 %>%  filter( HS_OFFER_GPA>= 3.50 & BEST_SCORE >= 1160 & FAFSA_DT>0 ) 
+FTIC2021Temp <- FTIC2021Temp[!duplicated(FTIC2021Temp$UWFID),]# 1690 # 1014
+
+table(FTIC2021Temp$PELL_ELGBL, FTIC2021Temp$PELL_VERF)
+colnames(FTIC2021Temp)
+# code for ACS 123
+library(dplyr)
+FTIC2021ACScode <-  FTIC2021Temp %>% 
+  mutate(  ACScode = ifelse( (HS_OFFER_GPA>= 4.00 & BEST_SCORE >= 1330), "ACS1",
+                          ifelse( (HS_OFFER_GPA >= 3.80 & BEST_SCORE >= 1260), "ACS2",
+                                 ifelse( (HS_OFFER_GPA >= 3.50 & BEST_SCORE >= 1160), "ACS3","Others"))))#1011
+
+summary2021 <-  FTIC2021ACScode %>% group_by(ACScode) %>% dplyr::summarise(minGPA=min(HS_OFFER_GPA), mintest=min(BEST_SCORE))
+summary2021
+
+addmargins(table( FTIC2021ACScode$ACScode))
+
+library(readr)
+v5all_vari_PREDICTION <- read_csv("G:/My Drive/#1_Jay's Space/AdmittedFTIC2021/v5all_vari_PREDICTION.csv", 
+    col_types = cols(X1 = col_skip(), X = col_skip()))
+
+FTIC2021Tier <- v5all_vari_PREDICTION %>% select(UWFID, Pred_Tier)
+temp_tierinfo <- merge(FTIC_202108_202105_Admitted_as_of_3_1_21, FTIC2021Tier, by= "UWFID",all.x = T) %>% 
+#%>% filter(HS_OFFER_GPA>=3.50 & BEST_SCORE >= 1160) 
+filter(FAFSA_DT>0) %>% filter(Pred_Tier>=3)
+
+table(temp_tierinfo$Pred_Tier)
+
+FTICACSall <- merge( FTIC2021ACScode, FTIC2021Tier, by = "UWFID", all.x=T) #1020
+FTICACSall[which(is.na(FTICACSall$Pred_Tier)),]
+FTICACSall[which(duplicated(FTICACSall$UWFID)),]
+FTICACSall <- FTICACSall[!duplicated(FTICACSall$UWFID),] #1011
+### min score by tiers
+summary2021TIER <-  FTICACSall %>% group_by(Pred_Tier) %>% dplyr::summarise(minGPA=min(HS_OFFER_GPA), mintest=min(BEST_SCORE))
+summary2021TIER
+
+addmargins(table(FTICACSall$ACScode, FTICACSall$Pred_Tier))
+max(FTICACSall$APP_DT)
+FTICACSall[FTICACSall$UWFID=="970601658",]
+write.csv(FTICACSall, "V2Projection_ACS_FTIC2021.csv")
+```
+
+```{r}
+# 04/26/2021
+library(readxl)
+FinalAward_acex2021 <- read_excel("FinalAward_acex2021.xlsx", 
+    sheet = "FLORIDA")  %>%  mutate(  ACScode = ifelse( (SORHSCH_GPA>= 4.00 & BEST >= 1330), "ACS1",
+                          ifelse( (SORHSCH_GPA >= 3.80 & BEST >= 1260), "ACS2",
+                                 ifelse( (SORHSCH_GPA >= 3.50 & BEST >= 1160), "ACS3","Others"))))
+FinalAward_acex2021[!duplicated(FinalAward_acex2021$UWFID),]
+
+addmargins(table(FinalAward_acex2021$Tier, FinalAward_acex2021$ACScode))
+```
+
+```{r}
+ID_final <- FinalAward_acex2021 %>% select(UWFID,16:20)
+ID_acex_acs <- inner_join(ID_final, FTICACSall, by ="UWFID", all=T) #1214
+ID_acex_acs1 <- ID_acex_acs[!duplicated(ID_acex_acs$UWFID),]
+write.csv(ID_acex_acs1, "v1final_acex_acs04252021.csv")
+write.csv(FinalAward_acex2021, "v1final_acex_acs04252021.csv")
+
+```
+
