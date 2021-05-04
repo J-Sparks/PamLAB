@@ -1,0 +1,198 @@
+---
+title: "FlexDashboard Major Changes UWF"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+setwd("C:/PAM_Jay/ActiveDashboard")
+#library(flexdashboard)
+library(tidyverse)
+library(naivebayes)
+library(caret)
+library(ggridges)
+library(plotly)
+library(rlang)
+library(shiny)
+library(shinydashboard)
+library(readr)
+library(dplyr)
+
+ID_ENC_DEG_info_add_CIP <- as.data.frame(read.csv("C:/PAM_Jay/ActiveDashboard/ID_ENC_DEG_info_add_CIP.csv"))
+
+dataUWF <- ID_ENC_DEG_info_add_CIP
+
+CollegeChoice <- unique(dataUWF$Begin_col_desc)
+DepartChoice <- unique(dataUWF$Begin_Deprt_desc)
+CIPProgChoice <- unique(dataUWF$Begin_CIP_desc)
+CohortChoice <- unique(dataUWF$Cohort)
+```
+
+Changes Between College
+======================================================================
+
+column { .sidebar}
+-----------------------------------------------------------------------
+
+ + Select: **entered College**
+ + Trends of Changing College: see the three years of cohort from 2014 to 2016
+ + FTIC who **changed** their College at least one time or more 
+ + Programs: the college the FTIC migrated to
+ + Y-axis: frequency of the changes
+  
+```{r}
+selectInput("Begin_col_desc", label="Select Entry College", choices = CollegeChoice, selected = "Col of Arts, Soc Sci and Human")
+
+#selectInput("Begin_Deprt_desc", label="Select Entry Department", choices = DepartChoice, selected = "Biology" )
+
+#selectInput("Begin_CIP_desc", label= ("Select Entry Program"), choices = CIPProgChoice, selected = "Biomedical Sciences, General" )
+#selectInput("Cohort", label= h3("Select Cohort Year"), choices = CohortChoice )
+
+```
+
+
+
+Column  { .tabset}
+-----------------------------------------------------------------------
+
+### The Most Popular College Changes by Entry College
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ 
+ renderPlotly({
+   dataUWF %>%  
+  filter(  ChangeInd != "StayedProg" & ChangedProg == 1) %>% 
+  mutate(Cohort=factor(Cohort)) %>% 
+  count(Begin_col_desc, Stu_College,Cohort) %>% #Cohort,Begin_col,Begin_Deprt,
+     arrange(-n) %>% 
+    as.data.frame() %>% 
+    #top_n(20) %>% 
+    filter(str_detect(Begin_col_desc, if_else(input$Begin_col_desc == "Col of Arts, Soc Sci and Human", "", 
+                                                input$Begin_col_desc))) %>% 
+    plot_ly( x= ~Stu_College, y=~n, color = ~Cohort ,type="bar") 
+      
+ })
+
+```
+
+### Table
+
+```{r}
+renderPlotly({
+   dataUWF %>%  
+  filter(  ChangeInd != "StayedProg" & ChangedProg == 1  ) %>% 
+  mutate(Cohort=factor(Cohort)) %>% filter(Stu_DEMO_TIME_FRAME==max(Stu_DEMO_TIME_FRAME)) %>% 
+  count( Begin_col_desc, Stu_College,On_Time) %>% #Cohort,Begin_col,Begin_Deprt,
+    replace(is.na(.), 0) %>% 
+     arrange(-n) %>% 
+    as.data.frame() %>% 
+    ungroup() %>% 
+    #top_n(20) %>% 
+    filter(str_detect(Begin_col_desc, if_else(input$Begin_col_desc == "Col of Arts, Soc Sci and Human", "", 
+                                                input$Begin_col_desc))) %>% 
+    plot_ly( x= ~Stu_College, y=~n, color = ~On_Time ,type="bar") 
+      
+ })
+
+```
+
+
+
+
+
+Changes Between Departments
+======================================================================
+
+column { .sidebar}
+-----------------------------------------------------------------------
+
+ + Select: **entered Department**
+ + Trends of Changing Department: see the three years of cohort from 2014 to 2016
+ + FTIC who **changed** their Department at least one time or more 
+ + Department: the Department the FTIC migrated to
+ + Y-axis: frequency of the changes
+  
+```{r}
+#selectInput("Begin_col_desc", label="Select Entry College", choices = CollegeChoice, selected = "Science and Engineering")
+
+selectInput("Begin_Deprt_desc", label="Select Entry Department", choices = DepartChoice, selected = "Accounting & Finance" )
+
+#selectInput("Begin_CIP_desc", label= ("Select Entry Program"), choices = CIPProgChoice, selected = "Biomedical Sciences, General" )
+#selectInput("Cohort", label= h3("Select Cohort Year"), choices = CohortChoice )
+
+```
+
+
+
+Column   
+-----------------------------------------------------------------------
+
+### The Most Popular Department Changes by Entry Department
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ 
+ renderPlotly({
+   dataUWF %>%  
+  filter(  ChangeInd != "StayedProg" & ChangedProg == 1) %>% 
+  mutate(Cohort=factor(Cohort)) %>% 
+  count( Begin_Deprt_desc, Stu_Department) %>% #Cohort,Begin_col,Begin_Deprt,
+     filter( Begin_Deprt_desc != Stu_Department) %>% 
+     arrange(-n) %>% 
+     as.data.frame() %>% 
+     top_n(20) %>% 
+     filter(str_detect(Begin_Deprt_desc, if_else(input$Begin_Deprt_desc == "Accounting & Finance", "", 
+                                                input$Begin_Deprt_desc))) %>% 
+    #filter( ( !! rlang::sym(input$Begin_CIP_desc)) == input$Cohort ) %>% 
+  plot_ly( x= ~Stu_Department, y=~n, color = ~Stu_Department ,type="bar") 
+   #%>%  layout(legend = 1)
+     
+ })
+
+```
+
+
+Changes Between Programs
+======================================================================
+
+column { .sidebar}
+-----------------------------------------------------------------------
+
+ + Select: **entered Program**
+ + Trends of Changing Program: see the three years of cohort from 2014 to 2016
+ + FTIC who **changed** their Program at least one time or more 
+ + Program: the Program the FTIC migrated to
+ + Y-axis: frequency of the changes
+  
+```{r}
+ 
+selectInput("Begin_CIP_desc", label= ("Select Entry Program"), choices = CIPProgChoice, selected = "Biomedical Sciences, General" )
+ 
+```
+
+
+
+Column   
+-----------------------------------------------------------------------
+
+### The Most Popular Program Changes by Entry Program
+
+```{r}
+renderPlotly({
+   dataUWF %>%  
+  filter(  ChangeInd != "StayedProg" & ChangedProg >= 1) %>% 
+  mutate(Cohort=factor(Cohort)) %>% 
+  count(Begin_CIP_desc, Stu_ProgramCIPDesc,Cohort) %>% #Cohort,Begin_col,Begin_Deprt,
+     arrange(-n) %>% 
+    as.data.frame() %>% 
+    #top_n(20) %>% 
+    filter(str_detect(Begin_CIP_desc, if_else(input$Begin_CIP_desc == "Biomedical Sciences, General", "", 
+                                                input$Begin_CIP_desc))) %>% 
+    plot_ly( x= ~Stu_ProgramCIPDesc, y=~n, color = ~Cohort ,type="bar") 
+      
+ })
+```
+
