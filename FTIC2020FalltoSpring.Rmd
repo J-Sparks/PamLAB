@@ -1,0 +1,93 @@
+---
+title: "Untitled"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readxl)
+CSE_Analysis_Full_Data_2020_Cohort_Spring21_Grades_Summer21Schd <- read_excel("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE Analysis Full Data 2020 Cohort Spring21 Grades_Summer21Schd.xlsx", 
+    sheet = "Courses")
+
+CSE_enc <- read_excel("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/CSE Analysis Full Data 2020 Cohort Spring21 Grades_Summer21Schd.xlsx", 
+    sheet = "Data")
+
+enc_cols <- CSE_enc %>% as.tibble() %>% 
+  select(UNIV_ROW_ID,COHORT_YEAR,TERM_TO_USE,contains("ENTRY")  )
+
+
+
+```
+
+
+```{r}
+### data cleaning
+pass_grade_GPA <- c("A", "A-", "B","B+","B-","C","C+","C-")
+CSE_sum <- CSE_Analysis_Full_Data_2020_Cohort_Spring21_Grades_Summer21Schd %>% as.tibble() %>% 
+  group_by( UNIV_ROW_ID,DEMO_TIME_FRAME ) %>% 
+  dplyr::summarise(TotalCredit = sum(STU_SECTN_CRED, na.rm = T))
+
+CSE_pass_sum <- CSE_Analysis_Full_Data_2020_Cohort_Spring21_Grades_Summer21Schd %>% as.tibble() %>% 
+   group_by( UNIV_ROW_ID,DEMO_TIME_FRAME ) %>% 
+   filter(GRADE_AWARDED  %in% pass_grade_GPA) %>% 
+  dplyr::summarise(TotalPassGPACredit = sum(STU_SECTN_CRED, na.rm = T))
+
+CSE_credit_two <- merge(CSE_sum, CSE_pass_sum, by=c("UNIV_ROW_ID","DEMO_TIME_FRAME"), all.x = T) %>% 
+  mutate(FailedCredit =  (TotalCredit-TotalPassGPACredit))
+
+CSE_two_enc <- merge(enc_cols, CSE_credit_two, by="UNIV_ROW_ID", all.y = T) %>% na.omit() %>% filter(DEMO_TIME_FRAME <=202101, DEMO_TIME_FRAME>202005) %>%  mutate(DEMO_TIME_FRAME= as.factor(DEMO_TIME_FRAME))
+
+glimpse(CSE_two_enc)
+```
+
+
+
+
+
+
+
+
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r}
+
+library(plotly)
+ fig1_cse <-  plot_ly() %>% 
+  add_trace(data = CSE_two_enc,
+            y = ~TotalPassGPACredit,
+            color = ~ factor(ENTRY_COLLEGE),
+            colors = "Dark2",
+            type = "box") %>% 
+  layout(title = "Passed Credit Hours by Colleges",
+         xaxis = list(title = "Terms"))
+ 
+ fig1_cse
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+
+summary(myaov <- aov( TotalPassGPACredit ~ ENTRY_COLLEGE + DEMO_TIME_FRAME,  CSE_two_enc))
+
+TukeyHSD(myaov)
+
+```
+
+### Chart C
+
+```{r}
+
+```
+
