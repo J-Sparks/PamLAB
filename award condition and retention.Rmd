@@ -1,0 +1,1158 @@
+---
+title: "Academic Excellence FTIC Characteristics"
+author: "Jay Kim"
+date: "3/24/2022"
+output: html_document
+---
+
+The following FTIC tier groups are historically well-prepared, and show higher performance in their first year after entering UWF. This document summarizes their characteristics and looks for any patterns among them.
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+ 
+## Overall Tier Scores
+
+**Tier 1: score above 92 (old 90)**
+
+**Tier 2: score above 87 (old 84)**
+
+**Tier 3**: score above 80 (old 77)
+
+**Tier 4**: score above 72 (old 69)
+
+**Tier 5**: score below 72 (old 69)
+ 
+$$Tier score = (higher test score*0.03125) + (12.5*hsgpa capped at 4)$$
+ 
+### Trends in Tier and Cohort 
+ 
+```{r echo=FALSE}
+library(readr)
+library(tidyverse)
+FTIC_ENROLLMENT_FIN_GROUPED2 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/_DataShaping/FTIC_ENROLLMENT_FIN_GROUPED2.csv")
+
+#prop.table(table(FT_tier_sum$FTIC_APRCT, FT_tier_sum$FTIC_DEMO_TIME_FRAME),2)
+FT_tier <- FTIC_ENROLLMENT_FIN_GROUPED2 %>%  filter(UWF_YearCode =="UWFYear1") %>% 
+     mutate(APPLICANT_TIER = ifelse(is.na(APPLICANT_TIER), "NA", APPLICANT_TIER)) %>% 
+    group_by(FTIC_UWFID) %>% 
+    filter(FTIC_DEMO_TIME_FRAME == min(FTIC_DEMO_TIME_FRAME)) 
+addmargins(table(COHORT=FT_tier$FTIC_Cohort, TIER=FT_tier$APPLICANT_TIER))
+prop.table(table(COHORT=FT_tier$FTIC_Cohort, TIER=FT_tier$APPLICANT_TIER),1)
+ 
+# which(duplicated(FT_tier$FTIC_UWFID))
+#    
+# app2017to2022_all_load_12_2021_V0 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/2021 Active Projects/08/ACCEPTANCE RATE/app2017to2022.all.load.12.2021_V0.csv")  %>%
+#     group_by(UWFID) %>% filter(APP_NO == max(APP_NO) & (APP_DT == max(APP_DT))) %>% filter(!duplicated(UWFID))
+# app_info <- app2017to2022_all_load_12_2021_V0
+# which(duplicated(app_info$UWFID))
+# 
+# FT_tier_app <- merge(FT_tier, app_info, by.x="FTIC_UWFID", by.y="UWFID", all.x = T) %>% select(-contains("PROB"))
+# which(duplicated(FT_tier_app$FTIC_UWFID))
+# glimpse(FT_tier_app)
+# test <- FT_tier_app[FT_tier_app$FTIC_Cohort=="2017","APP_DT"]
+# max(test, na.rm = T)
+# write.csv(FT_tier_app, "FT_tier_app.csv", row.names = FALSE)
+```
+
+```{r include=FALSE}
+library(readr)
+library(tidyverse)
+mytierdata <- read_csv("FT_tier_app.csv") %>%
+    mutate(APP_DT = as.Date(APP_DT, "%m/%d/%Y"), DEC_DATE= as.Date(DEC_DATE, "%m/%d/%Y")) %>% 
+    mutate(APP_DT_month = format(as.Date(APP_DT), "%Y/%m")) %>% 
+    mutate(DOB1 =  as.Date(DOB, "%m/%d/%Y"), FTIC_Age = round(as.numeric(difftime(APP_DT, DOB1, units = "weeks"))/52.25,0),
+           DaysDecision= round(as.numeric(difftime(DEC_DATE, APP_DT, units = "days")) ,0)) %>% 
+    mutate(GRADHSDATE =  as.Date(HS_GRAD_DT, "%m/%d/%Y"), GradHSYear = round(as.numeric(difftime(APP_DT, GRADHSDATE, units = "weeks"))/52.25,1)) %>% mutate_at(c(30:37), replace_na, 0) %>% 
+    mutate(GradHSYear = ifelse(GradHSYear <= 0, 0, GradHSYear)) %>% 
+    mutate(PELL_VERF = as.character(PELL_VERF)) %>% 
+    mutate_if(is.character, as.factor) 
+#Hmisc::describe(mytierdata)
+aidtypenewcols <- mytierdata %>% select(30:37) %>% mutate_at(c(1:8), ~ifelse(.x == 0, "No","Yes")) 
+names(aidtypenewcols) <- paste("Is.", names(aidtypenewcols), sep="")
+
+filtered_data <- cbind(mytierdata,aidtypenewcols) %>%     
+    mutate_if(is.character, as.factor) 
+#addmargins(table(filtered_data$Is.GrantTypes)) 
+#colnames(filtered_data)
+```
+
+## Data Description and Terms
+
+**Terms**: 
+
+ * APRCT: Above/below 2.00 in current (1st) term
+
+ * GradHSYear: time (in months) from HS graduation to UWF application (each month is 0.1)
+
+ * Days To Decision: time (in days) from aUWF application to decision (each day is 1.0)
+
+**Financial Aid Type**
+
+- Aid Categories: grants, institutional, private, other state, Bright Future, mixed
+
+ * Grant: ARPG, CRRS, PELL, etc. 
+
+ * Bright Future: State funded (Florida merit scholars funds)
+
+ * Institutional: CARS, ACEX, ARG, FAOS, etc. (institutionally funded)
+
+ * Private: PGSD#. (privately funded)
+
+ * Other State: HELI, THEO, etc. (state funded but not bright future)
+
+ * Loan: FDSL,FDUL, etc.
+
+ * Mixed: state, federal, or third-party sponsor funded
+
+**Aid Ratio**: proportion of aid type based on total aid amount (i.e. if "0.3 grant" then 30% of aid came from the grant category)
+
+**Risk-FTIC**: Below 2.00 in first term
+
+
+## Descriptive Statistics
+
+
+* **Cohort**: from 2017 to 2021
+
+* **Tier**: 1 and 2 
+
+* **Demographic Information**: ethnicity, gender, county, high school name, and state 
+
+* Performance/college information from their 1st term at UWF
+
+### Summary Table by Cohort
+
+```{r choose tier, echo=FALSE}
+filtered_data1 <- filtered_data %>%  filter(APPLICANT_TIER == 1 | APPLICANT_TIER == 2) # filtered tier level
+#addmargins(table(filtered_data1$Is.GrantTypes)) 
+library(gtsummary)
+
+factor_tier <- filtered_data1 %>% mutate(ST_group = ifelse(ST =="FL", "FL",ifelse(ST=="AL","AL","Others"))) %>% 
+    select(FTIC_Cohort,FTIC_Age,GradHSYear,DaysDecision,FTIC_PriorHours, ST_group, is.factor,  -contains("DT"),-contains("DATE") ,-HS_CEEB, -ZIP,-DOB, -PROGRAM_CODE, -HS_NAME,-HS_CNTY,   -PROGRAM_DESC,-CURRICULUM_COLL,-CURRICULUM_DEPT, -UWF_YearCode,- APP_PAID,-APP_STATUS,-HS_CNTY, -CNTY,-RACE,-NATION, -GENDER, -APP_DT_month, contains("Is."),GrantTypes,LoanTypes,TotalFinAid_Term,-FTIC_County,-ST, -DEC_CODE, -ADMIT_TYPE, -OFFER_CODE,
+           contains("scholar"))  
+#colSums(is.na(factor_tier))
+#addmargins(table(factor_tier$Is.GrantTypes, factor_tier$FTIC_Cohort)) 
+
+#glimpse(factor_tier)
+sumtab <- factor_tier %>%  mutate(FTIC_Cohort = as.factor(FTIC_Cohort))  %>% 
+    tbl_summary( by = FTIC_Cohort,
+                statistic = all_continuous() ~ "{mean} ({sd}) {min} {max}",
+                missing = "no"
+                            ) %>% add_n()
+sumtab
+#glimpse(factor_tier)
+```
+
+### Application Date by Cohort
+
+```{r}
+library(plotly)
+library(lubridate)
+
+
+appdate <- filtered_data1 %>%  
+    ggplot() + geom_bar(aes(x=APP_DT_month, fill=factor(FTIC_Cohort))) + 
+    coord_flip() + 
+    facet_grid(~FTIC_Cohort)
+
+ggplotly(appdate)
+
+#colnames(filtered_data1)
+
+```
+* Students tended to apply later in 2021 - the bulk applied in January.
+
+* By contrast, from 2017 to 2020, most applications came in October and November. 
+
+
+### Days from Application to Decision by Cohort and Applicatioin Number
+
+```{r}
+#hist(filtered_data1$DaysDecision)
+decisiondays <- filtered_data1 %>% #filter(DaysDecision <= 200) %>% 
+    ggplot() + geom_histogram(aes(x=DaysDecision ,fill=factor(APP_NO))) + coord_flip() +facet_grid(~FTIC_Cohort)
+ggplotly(decisiondays)
+```
+* Most decisions were made within 100 days.
+
+* There are some applicants with multiple applications which, combined, within 25 days for decision.
+
+
+### Applied Before/After graduating high school by Some Financial Aid (Yes/No)
+
+```{r}
+
+gradhs <- filtered_data1 %>%  
+    mutate(AfterGradHS=ifelse(GradHSYear !=0, "AppliedAfterGradHS","AppliedBeforeGradHS")) %>%  
+    group_by(AfterGradHS, Is.TotalFinAid_Term) %>% dplyr::summarise(Count=n()) %>%  arrange(-Count) %>%
+    ggplot(aes(x=reorder( AfterGradHS,Is.TotalFinAid_Term), y= Count, fill=Is.TotalFinAid_Term)) + geom_col() +
+    scale_fill_manual(values = c("orange","gray"))
+#summary(table(gradhs$FTIC_APRCT, gradhs$AfterGradHS))
+ggplotly(gradhs)  
+# library(doBy)
+# summaryBy(c( "AGE") ~ AfterGradHS, data = gradhs)
+```
+* Most students have some type of financial aid.
+
+
+### Summary of GPA and Prior Hours by Hs Name and Ethnicity
+
+```{r}
+
+race.prior <- filtered_data1 %>%  
+    mutate(FTIC_PriorHours= ifelse(is.na(FTIC_PriorHours), 0, FTIC_PriorHours)) %>%            group_by(HS_NAME,FTIC_Ethnicity) %>% 
+    dplyr::summarise(Count=n(),MIN=min(FTIC_PriorHours), MeanPriorHrs= round(mean(FTIC_PriorHours),2),
+                     SD= round(sd(FTIC_PriorHours),2),
+                     MAX=max(FTIC_PriorHours), MeanAge=round(mean(FTIC_Age, na.rm=T),2),
+                     MeanGPA=round(mean(FTIC_UWFGPA),2)) %>% 
+    arrange(-Count) %>%  filter(Count >= 5) 
+
+knitr::kable(race.prior)
+```
+
+
+### Entry College and Gender
+
+```{r}
+
+college <- filtered_data1 %>% group_by(FTIC_College, FTIC_Gender) %>% summarise(Count=n()) %>% 
+ggplot(aes(x= reorder(FTIC_College, FTIC_Gender) ,y=Count, fill=FTIC_Gender )) + geom_bar(stat = "identity") +
+    coord_flip() 
+
+ggplotly(college)
+
+```
+* HMCSE Retained the most male FTIC.
+
+* UKCOH and HMCSE retained the most female FTIC.
+
+
+
+### Entry Department (cutoff >= 10)
+
+```{r}
+
+department <- filtered_data1 %>% group_by(FTIC_Department) %>% summarise(Count=n()) %>% filter(Count>=10) %>% 
+ggplot(aes(x= reorder(FTIC_Department, Count) ,y=Count, fill=FTIC_Department )) + 
+    geom_bar(stat = "identity") +
+    coord_flip()
+
+ggplotly(department)
+```
+* The most popular departments (in order) for Tier 4 by enrollment are biology,Computer Science, Nursing, and Mechanical Engineering.
+
+
+
+### Entry Program by 1st Term UWF GPA (APRCT) (Above 2.00)
+
+```{r}
+
+program <- filtered_data1 %>% group_by(FTIC_ProgramCIPDesc, FTIC_APRCT) %>% summarise(Count=n()) %>% arrange(FTIC_ProgramCIPDesc,FTIC_APRCT,-Count) %>% 
+    filter(Count >= 10) %>% 
+ggplot(aes(x= reorder(FTIC_ProgramCIPDesc, Count) ,y=Count, fill=FTIC_APRCT )) + 
+    geom_bar(stat = "identity") +
+    coord_flip()
+
+ggplotly(program)
+```
+* The largest groups of at-risk FTIC Below 2.00 came from the Biomecial and Mechanical Engineering program.
+
+
+
+### Top High school (cutoff >= 4) & Entry Program
+
+```{r}
+hs <- filtered_data1 %>% group_by(FTIC_ProgramCIPDesc, HS_NAME) %>% 
+    mutate(FTIC_ProgramCIPDesc = substring(FTIC_ProgramCIPDesc,0,10)) %>% 
+    dplyr::summarise(Count=n()) %>% arrange(-Count) %>% 
+    filter(Count >= 3) %>% 
+    ggplot() + geom_col(aes(x=reorder(FTIC_ProgramCIPDesc,HS_NAME), y= Count, fill=HS_NAME)) +#+coord_flip()
+    #theme_bw(base_size = 9)+
+    theme(axis.text = element_text(angle = 20))
+ggplotly(hs)
+
+
+```
+
+* Top 3 most popular programs by high school are Biomedical, Mechanical ENG, and Nursing.
+
+* Most students from Pace HS and Gulf Breeze HS entered the Biomedical program.
+
+* Most Gulf Breeze HS and JM Tate HS, and JM Tate HS graduates entered the Mechanical ENG program.
+
+* Most Milton HS and JM Tate HS graduates entered the Nursing program.
+
+### Residence Hall and some type of aid
+
+```{r}
+
+resident <- filtered_data1 %>% group_by(FTIC_ResidenceHall, Is.TotalFinAid_Term) %>% summarise(Count=n()) %>% 
+     ggplot(aes(x= reorder(FTIC_ResidenceHall, Is.TotalFinAid_Term) ,y=Count, fill=Is.TotalFinAid_Term )) + 
+    geom_bar(stat = "identity") +
+    coord_flip() + scale_fill_manual(values = c("darkgray","lightblue"))
+
+ggplotly(resident)
+
+```
+* Most students who did not have any financial aid were commuters.
+
+
+### Tri-County by Grant Type Aid
+
+```{r}
+hscnty <- filtered_data1 %>% group_by(FTIC_County, Is.GrantTypes) %>% 
+    dplyr::summarise(Count=n()) %>% arrange( -Count ) %>% 
+    filter(Count >= 5) %>% 
+    ggplot(aes(x=reorder(FTIC_County,Count), y= Count, fill=Is.GrantTypes)) + geom_col( ) +
+    coord_flip()
+ggplotly(hscnty)
+
+```
+
+* Most were came from tri-county and Non-FL with grants.
+
+
+
+### High School Name and Ethnicity
+
+```{r}
+
+hsrace <- filtered_data1 %>% group_by( HS_NAME,FTIC_Ethnicity ) %>% 
+    dplyr::summarise(Count=n()) %>% 
+    arrange( -Count) %>% 
+    filter(Count >= 5) %>% 
+ggplot() + geom_col(aes(x= HS_NAME, y=Count, fill=FTIC_Ethnicity)) +coord_flip()
+ggplotly(hsrace)
+
+```
+
+* Most African Americans came from WF HS Tech, Pensacola HS, and Booker HS.
+
+* Most Hispanics came from Navarre HS, WF HS, and Gulf Breezwe HS.
+
+* Most whites came from Gulf Breeze and Pace HS.
+
+
+### Total Financial Aid Amount & APRCT
+
+```{r}
+aid.race <- ggplot(filtered_data1,aes(x=TotalFinAid_Term, fill=FTIC_APRCT)) +
+    geom_histogram() #+ scale_fill_gradient(low="black", high="blue")
+ggplotly(aid.race)
+```
+* Among students with aid, the count of at-risk for each group is fairly consistent.
+
+
+
+### Financial Information: Total Financial Aid
+
+ $$AidRatio = Aid Type Amount/Total Aid Amount$$
+
+```{r}
+library(plotly)
+aid_ratio <- filtered_data1 %>% mutate_at(c(30:36), funs(./TotalFinAid_Term)) %>% 
+    mutate_at(c(30:36), funs(round(., digits = 2))) %>% mutate_at(c(30:36), replace_na, 0) %>% 
+    select(30:36) %>% pivot_longer(everything(), names_to = "AidType", values_to = "Ratio") %>%
+    filter(Ratio > 0) %>%  # filtered no aid type
+    ggplot(aes(x=Ratio,   fill=factor(AidType)) ) + geom_histogram() +labs(title = "Aid Type Ratio")
+
+ ggplotly(aid_ratio)
+
+```
+
+* Most students awarded merit and Bright Future.
+
+
+### Financial Information by Group: Merit & Bright Future Types and APRCT
+
+```{r}
+library(plotly)
+alltype <- filtered_data1[,c(18,31,36,37)] %>% tidyr::pivot_longer(c(2,3,4), names_to = "AidType", values_to = "Amount") %>%
+    filter(!is.na(Amount) ) %>% 
+    #mutate(Amount = round(Amount,2)) %>% 
+  ggplot( aes(x= Amount, fill=FTIC_APRCT , colour=FTIC_APRCT)) + geom_histogram() + #facet_grid(~AidType) 
+    #coord_flip() + 
+    facet_grid(~AidType)
+ ggplotly(alltype)
+#colnames(filtered_data1)
+```
+
+* Most FTIC's aid came from Merit and Bright Future scholaships.
+
+
+### The Aid type by APRCT (Below 2.00)
+
+
+```{r}
+aid.risk <- filtered_data1 %>% 
+    filter(FTIC_UWFGPA < 2.00) %>% 
+    select(84:90) %>%
+    pivot_longer(c(1:7), names_to = "AidType", values_to = "Aid_Yes_No") %>% filter(!is.na(Aid_Yes_No)) %>% 
+    ggplot(aes(x=AidType, fill=Aid_Yes_No)) + geom_bar(position="dodge") + facet_grid(~AidType) +
+    labs(title = "Financial Aid Type among the risk-FTIC" ) + xlab(label ="") + coord_flip()
+ 
+ggplotly(aid.risk) 
+ 
+```
+
+* Most at-risk FTIC came from BF.
+
+ 
+
+```{r eval=FALSE, include=FALSE}
+granttype <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/2022 Active Projects/01/ACEX_CAL/granttype.csv")
+ids <- filtered_data1 %>% select("UNIV_ROW_ID"=FTIC_UWFID)
+granttypeID <-  merge(ids, granttype, by="UNIV_ROW_ID", all.x = T)
+addmargins(table(granttypeID$DETAIL_CODE, granttypeID$REPT_TIME_FRAME))
+```
+
+
+
+### Pivot Table (APRCT by Ethnicity and Gender (%))
+
+
+```{r}
+
+library(rpivotTable)
+rpivotTable(filtered_data1, aggregatorName = "Count as Fraction of Rows",
+            rows = c("Is.TotalFinAid_Term", "FTIC_Gender","FTIC_Ethnicity"),
+             cols = c("FTIC_APRCT"),
+            height = "500px", overflow="scroll",
+             subtotals = T, rendererName = "Table With Subtotal")
+```
+
+### Financial aid and retention (05/23/2022)
+
+```{r cohort and demotime}
+library(readr)
+library(tidyverse)
+FTIC_ENROLLMENT_FIN_GROUPED2 <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/_DataShaping/FTIC_ENROLLMENT_FIN_GROUPED2.csv")
+
+#Hmisc::describe(FTIC_ENROLLMENT_FIN_GROUPED2)
+addmargins(table(FTIC_ENROLLMENT_FIN_GROUPED2$FTIC_Cohort, FTIC_ENROLLMENT_FIN_GROUPED2$FTIC_DEMO_TIME_FRAME))
+```
+
+```{r financila aid data}
+library(readr)
+# detail
+FINANCIALDTL05122022 <- read_csv("//argo.uwf.edu/its/datahubprod/pamlab/202205/Updated 5-12-22/FINANCIAL_AID_AWARDS_DTL.csv") %>% 
+    filter(AWARD_PAYMENT_TERM >= 201705) 
+
+FINANCIALDTL05122022 %>% 
+    group_by(AWARD_COND_ID,REPT_TIME_FRAME) %>% 
+    count()
+
+#award conditions
+FINANCIAL05122022 <- read_csv("//argo.uwf.edu/its/datahubprod/pamlab/202205/Updated 5-12-22/FINANCIAL_AID_AWARDS.csv") %>% 
+    filter(AWARD_PAYMENT_TERM >= 201705)
+colSums(is.na(FINANCIAL05122022))
+
+FINANCIAL05122022 %>%  
+    group_by(AWARD_COND_ID, REPT_TIME_FRAME) %>% 
+    count()
+
+max(FINANCIALDTL05122022$AWARD_PAYMENT_TERM, na.rm=T)
+addmargins(table(FINANCIAL05122022$AWARD_COND_ID, FINANCIAL05122022$REPT_TIME_FRAME))
+
+#aid year 
+fin_A_N <- FINANCIALDTL05122022 %>% filter(REPT_TIME_FRAME == 20202021) %>% 
+    group_by(REPT_TIME_FRAME,  AWARD_COND_ID,DETAIL_CODE,DETAIL_CODE_DESC) %>%  
+    summarise(Year_Amount = sum(TERM_AMOUNT), Year_Count=n()) %>% 
+    arrange(AWARD_COND_ID)
+
+fin_A_N
+
+#write.csv(fin_A_N, "financial_need_nonneed_codes_20202021.csv",row.names = FALSE)
+```
+
+```{r ftic financial aid}
+
+ftic_data <-  FTIC_ENROLLMENT_FIN_GROUPED2 %>% select("UNIV_ROW_ID"=FTIC_UWFID,"AWARD_PAYMENT_TERM"= FTIC_DEMO_TIME_FRAME, FTIC_Cohort)
+ftic_fin <- merge(ftic_data, fin_A_N, by= c("UNIV_ROW_ID","AWARD_PAYMENT_TERM"), all.x=TRUE)
+
+addmargins(table(ftic_fin$AWARD_PAYMENT_TERM, ftic_fin$AWARD_COND_ID, ftic_fin$FTIC_Cohort),1) # no information efc or coa old cohorts
+```
+
+
+```{r coa data and fin}
+code_fin_awarded_history <-read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/2022 Active Projects/01/RNL_Financial Data/code_fin_awarded_history_with_stu_idfrom2019to2021_V1.csv") %>% 
+    filter(aid_year != 20222023)
+unique(code_fin_awarded_history$aid_year)
+
+ftic_fin_coa <- merge(ftic_fin, code_fin_awarded_history, 
+                      by.x = c("UNIV_ROW_ID", "AWARD_PAYMENT_TERM"), 
+                      by.y = c("uwfid","term_code"), 
+                      all.x = TRUE )
+
+```
+
+
+```{r}
+library(tidyverse)
+library(janitor)
+fin_A_N_both <- FINANCIAL05122022 %>% group_by(UNIV_ROW_ID, REPT_TIME_FRAME,AWARD_COND_ID) %>% summarise(Amount=sum(TERM_AMOUNT, nw.rm=TRUE)) %>% 
+    pivot_wider(names_from = AWARD_COND_ID, values_from = Amount)  %>% 
+    select("uwfid"=UNIV_ROW_ID, "aid_year"=REPT_TIME_FRAME, "Non_Need_Based"=A, "Need_Based"=N)
+
+fin_check <- FINANCIAL05122022 %>% group_by(REPT_TIME_FRAME,AWARD_COND_ID) %>% count()
+fin_check
+FINANCIAL05122022[is.na(FINANCIAL05122022$AWARD_COND_ID),]
+```
+
+
+```{r}
+
+library(readr)
+classcode <- c("1","2","3","4")
+nodegree <- c("S","N")
+STU_ENROLLMENT <- read_csv("//argo.uwf.edu/its/datahubprod/pamlab/202205/Updated 5-12-22/STU_ENROLLMENT.csv")
+
+```
+
+```{r non-need based aid only}
+fin_need <- FINANCIALDTL05122022 %>%  filter( REPT_TIME_FRAME >= 20192020 & REPT_TIME_FRAME <= 20202021)  
+awardcond <- FINANCIALDTL05122022 %>%   
+    select(DETAIL_CODE,AWARD_COND_ID) %>%  unique() %>% filter(!is.na(AWARD_COND_ID)) %>% select(DETAIL_CODE, "new_cond_id"=AWARD_COND_ID)
+colSums(is.na(awardcond))
+#fdul <- fin_need[fin_need$DETAIL_CODE=="FDUL",] %>% select(AWARD_COND_ID) %>% unique() # non-nned based
+loancodes <- c("FDSL" ) # FDUL is nnb
+new_fin_need1 <- merge(fin_need, awardcond, by="DETAIL_CODE", all.x=TRUE) %>% filter(new_cond_id =="N") %>% # pell and loan
+    mutate(detail_code_breaks = ifelse(DETAIL_CODE == "PELL", "PELL",
+                                       ifelse(DETAIL_CODE %in% loancodes, DETAIL_CODE, "Others"))) %>% 
+    group_by(UNIV_ROW_ID, REPT_TIME_FRAME,detail_code_breaks) %>% summarise(need_amount= round(sum(TERM_AMOUNT),0) ) %>% 
+    pivot_wider(names_from = detail_code_breaks, values_from = need_amount) %>%  arrange(UNIV_ROW_ID, REPT_TIME_FRAME)
+
+colSums(is.na(new_fin_need1))
+ 
+new_fin_need1
+
+### export need based code and detail
+nb_code_detail <- fin_need %>% select(AWARD_PROG_ID, AWARD_COND_ID,DETAIL_CODE,DETAIL_CODE_DESC) %>% filter(AWARD_COND_ID =="N") %>%  unique()
+write.csv(nb_code_detail, "nb_code_detail.csv", row.names = FALSE)
+```
+
+
+```{r  non need based aid}
+bfc <- c("FLMS","FLUT")
+ nnb_aid <- c("FDUL","ACEX", "VA33", "PL")
+new_fin_nonneed1_origin <- merge(fin_need, awardcond, by="DETAIL_CODE", all.x=TRUE) %>% filter(new_cond_id =="A") %>% # pell and loan
+    mutate(detail_code_breaks = ifelse(DETAIL_CODE %in% bfc,  "BrightFuture",  
+                                       ifelse(DETAIL_CODE %in% nnb_aid, DETAIL_CODE, "Others")))  
+   
+
+new_fin_nonneed1 <-  new_fin_nonneed1_origin %>% 
+     group_by(UNIV_ROW_ID, REPT_TIME_FRAME,detail_code_breaks) %>% summarise(need_amount= round(sum(TERM_AMOUNT),0) ) %>% 
+    pivot_wider(names_from = detail_code_breaks, values_from = need_amount) %>%  arrange(UNIV_ROW_ID, REPT_TIME_FRAME) %>% 
+    select("uwfid"=UNIV_ROW_ID, "aid_year"=REPT_TIME_FRAME,3:8)
+                                      
+fin_nnb <- new_fin_nonneed1 %>% group_by(new_cond_id,DETAIL_CODE,DETAIL_CODE_DESC) %>% summarise(count=n(), amount=sum(TERM_AMOUNT)) %>% arrange(-amount) #ACEX AFRC 
+nnb_aid_Detail <- new_fin_nonneed1_origin %>% select(detail_code_breaks,DETAIL_CODE, DETAIL_CODE_DESC) %>% unique()
+nnb_aid_Detail
+write.csv(nnb_aid_Detail, "nnb_aid_Detail.csv", row.names = FALSE)
+nnb_aid_Detail <- read_csv("nnb_aid_Detail.csv")
+```
+
+### grants/loans/merit
+
+```{r by funds types}
+
+bytypes <-   merge(fin_need, awardcond, by="DETAIL_CODE", all.x=TRUE) %>% 
+    mutate( AWARD_PROG_ID = as.numeric(AWARD_PROG_ID)) %>% 
+    mutate(funds_type = 
+               ifelse(AWARD_PROG_ID ==1, "GrantTypes", # pell not included
+            ifelse(AWARD_PROG_ID < 100,  "GrantTypes",  # grants
+            ifelse(AWARD_PROG_ID < 200,  "LoanTypes", 
+            ifelse(AWARD_PROG_ID <=202,  "MixedScholarships", 
+            ifelse(AWARD_PROG_ID == 203,  "MixedScholarships",
+            ifelse(AWARD_PROG_ID == 204,  "MixedScholarships",
+            ifelse(AWARD_PROG_ID == 205,  "MeritScholarships",
+            ifelse(AWARD_PROG_ID == 206,  "MixedScholarships",
+            ifelse(AWARD_PROG_ID <= 208,  "MixedScholarships",
+            ifelse(AWARD_PROG_ID < 300,  "MixedScholarships",
+            ifelse(AWARD_PROG_ID < 400,  "WorkRelatedFunds", "ThridPartySponsor" ))))))))))))
+unique(bytypes$funds_type)
+
+by_types_all <- bytypes %>% 
+    group_by(UNIV_ROW_ID, REPT_TIME_FRAME,funds_type ) %>% summarise(amount=sum(TERM_AMOUNT)) %>% 
+    pivot_wider(names_from = funds_type, values_from = amount) %>%  select("uwfid"=UNIV_ROW_ID, "aid_year"=REPT_TIME_FRAME, 3:8) %>% select(-WorkRelatedFunds )
+by_types_all
+colSums(is.na(by_types_all))
+# funds names and codes
+funds_type_code_table <- bytypes %>%  select(funds_type, AWARD_PROG_ID,new_cond_id, DETAIL_CODE,DETAIL_CODE_DESC) %>% unique() %>% arrange(funds_type)
+
+funds_type_code_table
+write.csv(funds_type_code_table, "funds_type_code_table.csv", row.names = FALSE)
+fin_need[fin_need$UNIV_ROW_ID=="970005246",]
+```
+
+
+
+
+
+```{r cohort 2021 apr}
+
+
+fin_A_N_detail <- FINANCIALDTL05122022 %>% group_by(UNIV_ROW_ID, AWARD_PAYMENT_TERM,AWARD_COND_ID) %>% summarise(Amount=sum(TERM_AMOUNT, na.rm=TRUE))
+fin_A_N_detail
+
+
+STU_ENROLLMENT <- read_csv("//argo.uwf.edu/its/datahubprod/pamlab/202205/Updated 5-12-22/STU_ENROLLMENT.csv")
+cohort2020 <- FTIC_ENROLLMENT_FIN_GROUPED2 %>% filter(FTIC_Cohort == 2020) %>% filter(!duplicated(FTIC_UWFID))
+addmargins(table(cohort2020$APPLICANT_TIER))
+stu_202201 <- STU_ENROLLMENT %>% filter(Stu_DEMO_TIME_FRAME == 202201) %>% 
+ #   filter( Stu_AdmissionRecentTypeCode =="B" & (Stu_AdmissionTerm =="Fall 2021" | Stu_AdmissionTerm =="Summer 2021")) %>% 
+    filter(Stu_ClassificationCode %in% classcode) %>% 
+    select("FTIC_UWFID"=Stu_UWFID, contains("TotalInst")) %>% mutate(GPA= round(Stu_TotalInstGradePoints/Stu_TotalInstHours, 2))
+    
+cohort2021 <- FTIC_ENROLLMENT_FIN_GROUPED2 %>% filter(FTIC_Cohort == 2021) %>% filter(!duplicated(FTIC_UWFID))
+cohort_2021_gpa <-  merge(cohort2021, stu_202201, by="FTIC_UWFID", all.x=TRUE) %>% mutate(APR=ifelse(GPA>=2.00 & !is.na(GPA), 1,0))
+prop.table(table(cohort_2021_gpa$APR, cohort_2021_gpa$APPLICANT_TIER),2)
+
+#state
+table(STU_ENROLLMENT$Stu_FeeResidency, STU_ENROLLMENT$Stu_FeeResidencyCode)
+```
+
+
+
+```{r  data for financial and retention analysis}
+
+code_fin_awarded_history <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/2022 Active Projects/01/RNL_Financial Data/code_fin_awarded_history_with_stu_idfrom2019to2021_V1.csv") 
+
+ftic_coa <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/2022 Active Projects/01/RNL_Financial Data/ftic_target_re.csv") %>%  
+    select(uwfid, term_code,aid_year,residency,efc,budget_group,coa,target_type,all_tier) 
+#transfer
+transf_coa <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/2022 Active Projects/01/RNL_Financial Data/transfer_target_re.csv") %>% 
+     select(uwfid,term_code,aid_year, residency,efc,budget_group,coa,target_type,all_tier)
+#cont
+continuing_coa <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/2022 Active Projects/01/RNL_Financial Data/continuing_target.csv") %>% 
+     select(uwfid,term_code,aid_year, residency,efc,budget_group,coa,target_type,all_tier)
+
+all_coa <- rbind(ftic_coa ,transf_coa ,continuing_coa) %>% 
+    mutate(returning_term = ifelse(term_code == 201908, 202008,
+                            ifelse(term_code == 202008, 202108, 
+                            ifelse(term_code == 202108, 202208,  NA )))) %>% relocate(returning_term, .after = term_code) %>% 
+    mutate(aid_year = ifelse(aid_year == 1920, 20192020,
+                      ifelse(aid_year == 2021, 20202021,
+                      ifelse(aid_year == 2122, 20212022, NA )))) %>% 
+    arrange(uwfid, aid_year,returning_term )
+
+colSums(is.na(all_coa))
+first_term <- unique(all_coa$term_code)
+#end_infor
+more_enc_info <- STU_ENROLLMENT %>% 
+    filter(Stu_DEMO_TIME_FRAME %in% first_term ) %>%
+    filter( Stu_DEMO_DATA_SOURCE == "SIF" )  %>% 
+    filter( Stu_ClassificationCode %in% classcode ) %>% 
+    filter( !Stu_AdmissionRecentTypeCode %in% nodegree ) %>% 
+    select("uwfid"=Stu_UWFID, "term_code"=Stu_DEMO_TIME_FRAME, Stu_AdmissionTermCode,contains("admissionrecent"), 
+           contains("studenttype"),
+           contains("classification"), contains("ethnicity"),contains("firstgen"),contains("age"),  contains("gender"), contains("highschool"),contains("college"), contains("testact"),contains("testsat"),Stu_LoadBOGFTPT) %>% 
+    mutate(Stu_GPAHighSchool = ifelse(Stu_GPAHighSchool ==0.00, NA, Stu_GPAHighSchool))
+#coa and enc
+all_coa_more <- merge(all_coa, more_enc_info, by =c("uwfid","term_code"), all.x=TRUE)
+
+### returning term data
+reten_t <- unique(all_coa$returning_term)
+returen_term_data <- STU_ENROLLMENT %>% 
+    filter(Stu_DEMO_TIME_FRAME %in% reten_t ) %>%
+    filter( Stu_DEMO_DATA_SOURCE == "SIF" )  %>% 
+    filter( Stu_ClassificationCode %in% classcode ) %>% 
+    filter( !Stu_AdmissionRecentTypeCode %in% nodegree )  %>%  
+    select("uwfid"= Stu_UWFID, "returned_term" = Stu_DEMO_TIME_FRAME, contains("totalinst")) %>%
+    mutate(Returning_GPA1 = round(Stu_TotalInstGradePoints/Stu_TotalInstHours,2)) %>% 
+    arrange(uwfid, returned_term)
+STU_ENROLLMENT[STU_ENROLLMENT$Stu_UWFID=="970006700",]
+returen_term_data[returen_term_data$uwfid=="970006700",]
+all_coa_more[all_coa_more$uwfid=="970006700",]
+#merge with fin 2020 data
+all_enc_coa <- merge( all_coa_more ,returen_term_data,   by= c("uwfid"), all.x = TRUE ) %>% 
+    arrange(uwfid, aid_year ,returning_term, returned_term) %>% 
+    mutate(returned_term = ifelse(returned_term == returning_term, returned_term, NA),
+           Returning_GPA = ifelse(is.na(returned_term), NA,  Returning_GPA1 ),
+           Stu_TotalInstGradePoints = ifelse(is.na(Returning_GPA), NA,  Stu_TotalInstGradePoints ),
+           Stu_TotalInstHours = ifelse(is.na(Returning_GPA), NA,  Stu_TotalInstHours ))  %>% 
+    arrange(uwfid, aid_year ,returning_term, returned_term)  %>% 
+    mutate(efc = ifelse(is.na(coa), NA, efc)) %>% relocate(returned_term, .after = returning_term)
+ 
+colSums(is.na(all_enc_coa))
+unique(all_enc_coa$returned_term)
+# distinck
+all_enc_coa_dist <- distinct(all_enc_coa, uwfid, aid_year, returning_term, .keep_all = TRUE) %>% 
+    select( -Returning_GPA1) %>% 
+    # mutate(returned_term = ifelse(!is.na(returned_term), "Yes",
+    #                               ifelse(aid_year == 20212022, NA,"No"))) %>% 
+    mutate(stu_type = str_sub(target_type, start = 1, end = 4))
+addmargins(table(all_enc_coa_dist$stu_type, all_enc_coa_dist$all_tier))
+all_enc_coa_dist_aid <- merge(all_enc_coa_dist, fin_A_N_both, by=c("uwfid","aid_year"), all.x=TRUE)
+###
+library(readr)
+STUDENT_DEGREE <- read_csv("//argo.uwf.edu/its/datahubprod/pamlab/202201/Updated 1-31-22/STUDENT_DEGREE.csv")
+unique(STUDENT_DEGREE$Deg_DEMO_DATA_SOURCE)
+deg_202105 <- STUDENT_DEGREE %>% filter(Deg_TermGranted >= 201908 ) %>% 
+    filter(Deg_Desc == "Bachelor") %>% 
+    select("uwfid"=Deg_UWFID, Deg_TermGranted) %>% unique() %>% filter(!duplicated(uwfid))
+
+all_enc_coa_dist_deg <- merge(all_enc_coa_dist_aid, deg_202105, by="uwfid", all.x = TRUE) %>% 
+    rowwise() %>% mutate_at(c("Non_Need_Based","Need_Based"), replace_na, 0) %>% 
+    mutate(All_Aid = sum(Non_Need_Based, Need_Based)) %>% 
+    mutate(Both_aid = ifelse(Non_Need_Based > 0 & Need_Based > 0, 1,0),
+           Need = ifelse(Need_Based > 0 , 1,0 ),
+          Non_Need = ifelse( Non_Need_Based > 0, 1,0 ),
+          No_Aid = ifelse(All_Aid == 0, 1,0)) %>% 
+     relocate(Deg_TermGranted, .after = term_code) %>% 
+     mutate(Deg_TermGranted = ifelse(Deg_TermGranted < returning_term & Deg_TermGranted >= term_code, Deg_TermGranted, NA)) %>% 
+     mutate(Final_Status = ifelse(!is.na(Deg_TermGranted) , "Graduated",
+                              ifelse(!is.na(returned_term), "Returned", "Stopped"))) %>% 
+    mutate(Final_Status = ifelse(returning_term == 202208, NA, Final_Status)) %>% 
+    relocate(Final_Status, .after = term_code) %>% filter(!is.na(Stu_AdmissionRecentTypeCode)) %>% 
+    arrange(uwfid, aid_year) %>% group_by(uwfid) %>%  
+    mutate(YOY = paste("year", row_number(), sep="")) %>% 
+    relocate(YOY,, .after = aid_year)
+
+write.csv(all_enc_coa_dist_deg, "all_enc_coa_dist_master.csv", row.names = FALSE)
+all_enc_coa_dist_deg[all_enc_coa_dist_deg$uwfid=="970005246",]
+
+```
+
+### Summary Data
+
+```{r shaping data}
+# efc coded
+award_cond <- read_csv("all_enc_coa_dist_master.csv") %>% filter(aid_year != 20212022)  %>% filter(efc<= 20000  & efc > 0 )
+fivenum(award_cond$efc, na.rm=T)
+ggplot(award_cond, aes(x=efc, fill=Final_Status)) + geom_histogram(bins = 50)
+
+award_c <- read_csv("all_enc_coa_dist_master.csv") 
+award_data <- award_c %>%  mutate( efc_rec = factor( ifelse(is.na(efc), "Missing",
+                             ifelse(efc == 0, "$0",
+                             ifelse(efc <= 9000, "$1-$9,000",
+                             ifelse(efc <= 14000, "$9,001-$14,000",
+                                    "$14,000+")))), levels = c("Missing","$0", "$1-$9,000", "$9,001-$14,000", "$14,000+" )) ) %>% 
+    mutate(efc_rec2 = ifelse(is.na(efc), "Missing", ifelse(efc ==0, "$0", "$0+"))) %>%
+    mutate(efc_rec = relevel(efc_rec,ref="$0")) %>%   
+    mutate(coa_rec = ifelse(is.na(coa), "Missing",
+                            ifelse(coa <= 24000, "$1-$24,000",
+                                   ifelse(coa <= 27000, "$24,001-$27,000", "$27,000+")))) %>% 
+    mutate(Final_Status_rec = ifelse(Final_Status == "Stopped",0, 1)) %>%
+    mutate(GAP = ifelse((coa - (efc+All_Aid)) >= 0, (coa - (efc+All_Aid)),
+                 ifelse(is.na(coa), NA, 0))) %>% 
+    #select(coa,Final_Status,residency, Stu_StudentTypeCode, Stu_Classification,Stu_Ethnicity, Stu_Gender,52:62) %>% 
+    mutate(Gap_Aid = factor( ifelse((is.na(coa) | is.na(GAP)), "Missing", ifelse(GAP == 0, "$0",
+                            ifelse(GAP <= 2000, "$1-$2,000",
+                                   ifelse(GAP<= 5000, "$2,001-$5,000", 
+                                          ifelse(GAP<= 8000,"$5,001-$8,000", "$8,000+"))))))) %>% 
+    mutate(Gap_Aid = relevel(Gap_Aid, ref="$0")) %>% 
+    mutate(Gap_Aid2 = factor( ifelse((is.na(coa) | is.na(GAP)), "Missing", ifelse(GAP == 0, "$0", "$0+")))) %>% 
+    mutate(Gap_Aid2 = relevel(Gap_Aid2, ref="$0"))
+                            # ifelse(efc <= 8000, "$1-$6,000",
+                            # ifelse(efc <=  18000,"$6,001-$18,000", "$18,000+" ))))) %>% 
+    # mutate(efc_rec = factor(efc_rec, c("Missing","$0", "$1-$6,000", "$6,001-$18,000", "$18,000+" )))
+#prop.table(table(award_c$Final_Status, award_c$efc_rec),2)
+ggplot(award_data, aes(x=GAP, fill=Final_Status)) + geom_histogram(bins = 20)
+
+addmargins(table(award_data$efc_rec, award_data$Gap_Aid))
+ggplot(award_data, aes(x=GAP, fill=Final_Status)) + geom_histogram(bins = 10)
+library(gtsummary)
+summary_data <- award_data[,-1] %>% select(-term_code, -Deg_TermGranted, -returning_term, -returned_term, -budget_group, -target_type, -Stu_AdmissionTermCode,-Stu_AdmissionRecentTypeCode,-Stu_StudentTypeCode,-Stu_ClassificationCode ,-Stu_EthnicityCode,-Stu_GenderCode,-Stu_GPAHighSchool,-Stu_CollegeCode, -contains("Stu_TEST"),-stu_type,-efc_rec,-Gap_Aid) %>% 
+    tbl_summary( by = aid_year,
+                statistic = all_continuous() ~ "{mean} ({sd}) {min} {max}",
+                missing = "no"
+                            ) %>%  add_n()
+summary_data
+```
+
+###  Any difference in retention between award conditions and student types?
+
+```{r model1 }
+ftic <- c("B","E")
+test_1 <- award_data %>% filter(aid_year != 20212022) %>% filter(Stu_LoadBOGFTPT =="Full Time") %>% 
+    mutate(APR = ifelse(Returning_GPA >= 2.00 & Final_Status =="Returned", "APR","NonAPR")) %>% 
+    mutate(StudentType = ifelse(Stu_StudentTypeCode %in%  ftic, "FTIC", Stu_StudentType ) ) %>%
+   # select(Final_Status_rec,efc_rec, StudentType, Need, Non_Need,Gap_Aid,APR,YOY) %>%
+    mutate_if(is.character, as.factor) %>% #mutate(all_tier = relevel(as.factor(all_tier), ref="5")) %>% 
+    mutate( YOY = relevel( YOY, ref="year1" )) %>% 
+    mutate(g1 = ifelse(aid_year == 20192020 & Stu_StudentTypeCode %in% ftic, "FT19",
+                        ifelse(aid_year == 20202021 & Stu_StudentTypeCode %in% ftic , "FT20", "FT"))) %>% 
+    mutate(year1_filter = 
+               ifelse( Stu_AdmissionRecentTypeCode =="B" & StudentType =="FTIC" &  YOY == "year1" & 
+                          ( Stu_AdmissionTermCode == 201905 | Stu_AdmissionTermCode == 201908), "Year 1",
+                                 ifelse( Stu_AdmissionRecentTypeCode =="B" & StudentType =="Continuing Student" &  YOY == "year2" &  
+                                            ( Stu_AdmissionTermCode == 201905 | Stu_AdmissionTermCode == 201908) , "Year 2","Year"))) %>% 
+    mutate(excluded_data = ifelse(Gap_Aid == "Missing",1,0)) %>% 
+    mutate(need_rec = cut(Need_Based, breaks = c(-1, 0, 4999, 9999,99999  ), 
+                          labels = c("<$1","$1-$5000","$5001-10,000","$10,000+" ))) %>%     
+    mutate(nnb_rec = cut(Non_Need_Based, breaks = c(-1, 0, 4999, 9999, 999999 ), 
+                          labels = c("<$1","$1-$5000","$5001-10,000","$10,000+" )))  
+
+    
+addmargins(table(test_1$need_rec, test_1$Stu_StudentTypeCode))
+#export dataset
+write.csv(test_1, "final_recoded_fin_retention_data_master.csv", row.names = FALSE)
+
+tab_1 <- test_1 %>% group_by(aid_year, Stu_Classification, Final_Status_rec) %>% summarise(Count=n()) %>%  #,Average=mean(All_Aid, na.rm=T), Min=min(All_Aid, na.rm=T), Max=max(All_Aid, na.rm=T))  
+    pivot_wider(names_from = Final_Status_rec, values_from = Count)
+tab_1
+write.csv(tab_1,"tab_1.csv",row.names = FALSE)
+```
+
+
+
+```{r Analysis}
+
+addmargins(table(test_1$coa_rec, test_1$aid_year))
+test_1 %>% #filter(year1_filter != "Year") %>% 
+    select(Final_Status_rec,efc_rec2, StudentType, Need, Non_Need,Gap_Aid2,APR, coa_rec,year1_filter)  %>% 
+    tbl_summary( by = year1_filter,
+                statistic = all_continuous() ~ "{mean} ({sd}) {min} {max}",
+                missing = "no"
+                            ) %>%  add_n()
+addmargins(table(test_1$Both_aid))
+# cont
+m_cont_data <- test_1 %>% #filter(StudentType == "Continuing Student") %>% 
+    filter(Gap_Aid != "Missing")
+
+m_cont <-  glm(Final_Status_rec ~ StudentType + Need + Non_Need  , data=test_1,  family = "binomial")  %>% 
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%
+    bold_p()
+
+### retention ftic freshman recoded aid amount
+freshman_data <- test_1 %>% filter(Stu_AdmissionRecentTypeCode %in% ftic & Stu_Classification =="Freshman" & Stu_StudentTypeCode =="B") #1534
+addmargins(table(freshman_data$need_rec, freshman_data$Final_Status_rec))
+
+# amount matter?
+m_test <-  glm(Final_Status_rec ~   need_rec + nnb_rec  , data=freshman_data,  family = "binomial")  %>% 
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%
+    bold_p()
+# matter
+m_test_matter <-  glm(Final_Status_rec ~   Need + Non_Need , data=freshman_data,  family = "binomial")  %>% 
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%
+    bold_p()
+#gap aid
+m_test_gap <-  glm(Final_Status_rec ~  Gap_Aid , data=freshman_data,  family = "binomial")  %>% 
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%
+    bold_p()
+#summary
+summary(mm_t <- glm(Final_Status_rec ~  Need + Non_Need + need_rec + nnb_rec  , data=freshman_data,  family = "binomial"))
+cbind(log(exp(cbind(coef(mm_t), confint(mm_t)))), exp(coef(mm_t)))
+
+### year 1
+m1_data <-  test_1  %>% filter(Gap_Aid != "Missing") %>% 
+     filter( year1_filter =="Year 1")    
+        #mutate(coa_rec = relevel(factor(coa_rec), ref = "Missing" ))  
+### year 2
+m2_data <-  test_1  %>% filter(Gap_Aid != "Missing") %>% 
+     filter(year1_filter == "Year 2")   
+        #mutate(coa_rec = relevel(factor(coa_rec), ref = "Missing" ))  
+
+glimpse(m1_data)
+table(m2_data$coa_rec)
+# for summary results tables
+m1 <-  glm(Final_Status_rec ~     efc_rec2 + Need + Non_Need + Gap_Aid2 , data=m1_data,  family = "binomial") %>% 
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+
+m2 <-  glm(Final_Status_rec ~    efc_rec2+Need + Non_Need + Gap_Aid2 , data=m2_data,  family = "binomial") %>% 
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+
+# two model
+m12 <- tbl_merge(tbls = list(m1, m2) , tab_spanner = c("**FTIC (Year 1)**", "**FTIC (Year 2)**"))
+m12
+
+
+#summary funtion
+summary(m1_t <- glm(Final_Status_rec ~   efc_rec + Need + Non_Need + Gap_Aid , data=m1_data, family = binomial()) )
+summary(m2_t <- glm(Final_Status_rec ~   efc_rec+Need + Non_Need + Gap_Aid , data=m2_data,    family = binomial()) )
+
+cbind(log(exp(cbind(coef(m1_t), confint(m1_t)))), exp(coef(m1_t)))
+cbind(log(exp(cbind(coef(m2_t), confint(m2_t)))), exp(coef(m2_t)))
+
+# #gap aid
+# m1_1 <- glm(Final_Status_rec ~ efc_rec + Gap_Aid ,  data = test_1, family = "binomial") %>% 
+#     tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+#     bold_labels() %>%  
+#     bold_p()
+# #interaction
+# m1_2 <- glm(Final_Status_rec ~ efc_rec*Gap_Aid + StudentType*Gap_Aid ,  data = test_1, family = "binomial") %>% 
+#     tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+#     bold_labels() %>%  
+#     bold_p()
+m1
+```
+
+
+### type of aids matter?
+
+```{r type of need aid and freshman}
+new_fin_need1_re <- new_fin_need1 %>%  select("uwfid"=UNIV_ROW_ID, "aid_year"=REPT_TIME_FRAME, Others, FDSL, PELL)
+freshman_data <- test_1 %>% filter(Stu_AdmissionRecentTypeCode %in% ftic & Stu_Classification =="Freshman" & Stu_StudentTypeCode =="B") #1534
+
+freshman_nb_data <- merge(freshman_data, new_fin_need1_re, by= c("uwfid", "aid_year"), all.x = TRUE) %>% 
+    mutate_at(c(76,77,78), replace_na, 0) %>% 
+    mutate(need_others=ifelse(Others==0, 0 ,1), 
+           need_FDSL = ifelse(FDSL==0, 0 ,1),
+           need_PELL = ifelse(PELL == 0, 0,1)) %>% 
+    mutate(other_rec = cut(Others, breaks = c(-1, 0, 4999,   999999 ), 
+                          labels = c("<$1","$1-$5000", "$5,000+" )))  %>% 
+    mutate(FDSL_rec = cut(FDSL, breaks = c(-1, 0, 5000 ), 
+                          labels = c("<$1","$1-$5000"  )))  %>% 
+    mutate(PELL_rec = cut(PELL, breaks = c(-1, 0, 4999,   999999 ), 
+                          labels = c("<$1","$1-$5000", "$5,000+" )))  
+addmargins(table(freshman_nb_data$Final_Status_rec, freshman_nb_data$FDSL_rec))
+
+nb_summary <-   freshman_nb_data %>%  select(Final_Status_rec ,other_rec, FDSL_rec, PELL_rec )  %>% 
+tbl_summary( by = Final_Status_rec,
+            statistic = all_continuous() ~ "{mean} ({sd}) {min} {max}",
+            missing = "no", percent = "row"
+                        ) %>%  add_n()
+nb_summary
+max(freshman_nb_data$FDSL,na.rm = T)
+which(duplicated(freshman_data$uwfid)) # no dups
+glimpse(freshman_nb_data)
+
+# type of need based aid matter?
+n_type <-  glm(Final_Status_rec ~ other_rec+ FDSL_rec+  PELL_rec   , data = freshman_nb_data,  family = "binomial") %>%  #need_others + need_FDSL + need_PELL
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+
+n_type
+
+n_amount_type <-  glm(Final_Status_rec ~ need_others + need_FDSL + need_PELL  , data = freshman_nb_data,  family = "binomial") %>%  #need_others + need_FDSL + need_PELL
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+
+n_amount_type
+
+ freshman_nb_data  %>% filter(PELL >= 5000) %>% 
+  mutate(prob = ifelse(Final_Status_rec == 1, 1, 0)) %>%
+  ggplot(aes(PELL, prob)) +
+  geom_point(alpha = .15) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  ggtitle("Logistic regression model fit") +
+  xlab("PELL Amount") +
+  ylab("Probability of Returned")
+
+```
+
+### Does non-need-based aid matter?
+
+```{r non need based freshman}
+
+freshman_nnb_data <- merge(freshman_data,  new_fin_nonneed1, by= c("uwfid", "aid_year"), all.x = TRUE) %>% 
+    mutate_at(c(76,77,78,79,80,81), replace_na, 0) %>% 
+    mutate(nonneed_others=ifelse(Others==0, 0 ,1), 
+           nonneed_FDUL = ifelse(FDUL==0, 0 ,1),
+           nonneed_PL = ifelse(PL == 0, 0,1),
+           nonneed_VA33 = ifelse(VA33 ==0, 0, 1),
+           nonneed_BF=ifelse(BrightFuture == 0,0,1),
+           nonneed_ACEX = ifelse(ACEX==0,0,1)) %>% 
+    mutate(other_rec = cut(Others, breaks = c(-1, 0, 4999,   999999 ), 
+                          labels = c("<$1","$1-$4,999", "$5,000+" )))  %>% 
+    mutate(FDUL_rec = cut(FDUL, breaks = c(-1, 0, 9500 ), 
+                          labels = c("<$1","$1-$9400"  )))  %>% 
+    mutate(PL_rec = cut(PL, breaks = c(-1, 0, 999999 ), 
+                          labels = c("<$1","$4,000-$22,500" ))) %>% 
+    mutate(VA33_rec = cut(VA33, breaks = c(-1, 0,4999,  999999 ), 
+                      labels = c("<$1","$1-$4,999", "$5,000+" )))  %>% 
+    mutate(BF_rec = cut(BrightFuture, breaks = c(-1, 0, 999999 ), 
+                      labels = c("<$1","$1-$7,571"  )))  %>% 
+    mutate(ACEX_rec = cut(ACEX, breaks = c(-1, 0, 2999, 4999,  999999 ), 
+                      labels = c("<$1","$1-$2,999", "$3,000-$4,999", "$5,000+" )))
+ addmargins(table(freshman_nnb_data$Final_Status_rec, freshman_nnb_data$BF_rec)   )
+
+ nnb_amount_type <- freshman_nnb_data %>%  select(Final_Status_rec, other_rec, FDUL_rec, PL_rec, VA33_rec,BF_rec,ACEX_rec )  %>%      
+     tbl_summary( by = Final_Status_rec,
+            statistic = all_continuous() ~ "{mean} ({sd}) {min} {max}",
+            missing = "no", percent = "row"
+                        ) %>%  add_n()
+
+nnb_amount_type
+
+non_type <-  glm(Final_Status_rec ~ nonneed_others+ nonneed_FDUL+  nonneed_PL+nonneed_VA33+nonneed_BF+nonneed_ACEX   , data = freshman_nnb_data,  family = "binomial") %>%  #need_others + need_FDSL + need_PELL
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+non_type
+
+non_type_amount <-  glm(Final_Status_rec ~ other_rec+ FDUL_rec+  PL_rec+VA33_rec+BF_rec+ACEX_rec   , data = freshman_nnb_data,  family = "binomial") %>%  #need_others + need_FDSL + need_PELL
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+non_type_amount
+max(freshman_nnb_data$PL)
+glimpse(freshman_nnb_data[,c(70:93)])
+acex_over5000 <- freshman_nnb_data %>% filter(ACEX_rec =="$5,000+")
+
+freshman_nnb_data %>%
+  mutate(prob = ifelse(Final_Status_rec == 1, 1, 0)) %>%
+  ggplot(aes(Non_Need_Based, prob)) +
+  geom_point(alpha = .15) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  ggtitle("Logistic regression model fit") +
+  xlab("Non_Need_Based Amount") +
+  ylab("Probability of Returned")
+```
+
+### Does type of funds matter? - grants/shcolarships/loans/others
+
+```{r funds type and retentions}
+
+
+freshman_funds_data <- merge(freshman_data,  by_types_all, by= c("uwfid", "aid_year"), all.x = TRUE) %>% 
+    mutate_at(c(76,77,78,79,80), replace_na, 0) %>% 
+    mutate(MeritScholar=ifelse(MeritScholarships ==0, 0 ,1), 
+           Grants = ifelse(GrantTypes==0, 0 ,1),
+           Loans = ifelse(LoanTypes == 0, 0,1),
+           MixedScholar = ifelse(MixedScholarships ==0, 0, 1),
+           # Pell=ifelse(PELLGrant == 0,0,1),
+           # BF = ifelse(BrightFuture==0,0,1),
+           ThirdParty = ifelse(ThridPartySponsor==0,0,1)) %>% 
+    mutate(Merit_rec = cut(MeritScholarships, breaks = c(-1, 0, 4999,   999999 ), 
+                          labels = c("<$1","$1-$4,999", "$5,000+" )))  %>% 
+    mutate(Grants_rec = cut(GrantTypes, breaks = c(-1, 0,2999, 4999,999999 ), 
+                          labels = c("<$1","$1-$2,999","$3,000-4,999","$5,000+"  )))  %>% 
+    mutate(Loans_rec = cut(LoanTypes, breaks = c(-1, 0, 4999, 999999 ), 
+                          labels = c("<$1","$1-4,999" ,  "$5,000+" ))) %>% 
+    mutate(Mixedscholar_rec = cut(MixedScholarships, breaks = c(-1, 0, 2999, 999999 ), 
+                      labels = c("<$1","$1-$2,999", "$3,000+" )))  %>% 
+    # mutate(BF_rec = cut(BrightFuture, breaks = c(-1, 0, 5000 ), 
+    #                   labels = c("<$1","$1-$5000"  )))  %>% 
+    # mutate(Pell_rec = cut(PELLGrant, breaks = c(-1, 0, 4999,  999999 ), 
+    #                 labels = c("<$1","$1-$4,999", "$5,000+" ))) %>% 
+    mutate(ThirdParty_rec = cut(ThridPartySponsor, breaks = c(-1, 0, 999999 ), 
+                      labels = c("<$1","$1+"  )))
+
+#save data
+write.csv(freshman_funds_data, "freshman_funds_data.csv", row.names = FALSE)
+ addmargins(table(freshman_funds_data$Final_Status_rec, freshman_funds_data$Merit_rec)   )
+ 
+fund_type_summary <-  freshman_funds_data %>%  select(Final_Status_rec ,Merit_rec, Grants_rec,  Loans_rec,Mixedscholar_rec,ThirdParty_rec )  %>%      
+     tbl_summary( by = Final_Status_rec,
+            statistic = all_continuous() ~ "{mean} ({sd}) {min} {max}",
+            missing = "no", percent = "row"
+                        ) %>%  add_n()
+ #summary table
+ 
+max(freshman_funds_data$ThridPartySponsor)
+fund_type <-  glm(Final_Status_rec ~ MeritScholar+ Grants+  Loans+MixedScholar+ThirdParty   , data = freshman_funds_data,  family = "binomial") %>%  #need_others + need_FDSL + need_PELL
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+fund_type
+
+fund_type_amount <-  glm(Final_Status_rec ~ Merit_rec+ Grants_rec+  Loans_rec+Mixedscholar_rec +ThirdParty_rec  , data = freshman_funds_data,  family = "binomial") %>%  #need_others + need_FDSL + need_PELL
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+fund_type_amount
+max(freshman_funds_data$PL)
+
+```
+
+### Gap aid and retentions
+
+```{r}
+gap_data <- freshman_nnb_data %>% 
+    # filter(coa_rec != "Missing") %>%
+    # mutate(all_tier = as.factor(all_tier)) %>% 
+    # filter(efc_rec != "Missing" & Gap_Aid != "Missing") %>% 
+    filter(residency != "AL Resident-Need Verification") %>% 
+    filter(residency !="Temporary Resident")
+
+gap_summary <- gap_data %>%  select(Final_Status_rec,coa,efc,Non_Need_Based,Need_Based,All_Aid,GAP,Gap_Aid,APR) %>% 
+    tbl_summary( by = Final_Status_rec, statistic = all_continuous() ~ "{mean} ({sd}) {min} {max}",
+            missing = "no"  , percent = "row") %>%  add_n() %>% bold_labels()
+gap_summary
+ #summary table
+
+gap_amount <-  
+    glm(Final_Status_rec ~  Gap_Aid  , data = gap_data,  family = "binomial") %>%  #need_others + need_FDSL + need_PELL
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+gap_amount
+
+```
+
+### demographic matter?
+
+```{r demographics}
+
+demo_data <- freshman_nnb_data %>% 
+    # filter(coa_rec != "Missing") %>%
+    # mutate(all_tier = as.factor(all_tier)) %>% 
+    # filter(efc_rec != "Missing" & Gap_Aid != "Missing") %>% 
+    filter(residency != "AL Resident-Need Verification") %>%
+    filter(residency !="Temporary Resident") %>%
+    mutate(ethnicity_rec = ifelse(Stu_EthnicityCode == 5, "AA",
+                            ifelse(Stu_EthnicityCode == 8, "Two or More",
+                            ifelse(Stu_EthnicityCode ==2, "Hispanic",
+                            ifelse(Stu_EthnicityCode ==7, "White",
+                            ifelse(Stu_EthnicityCode==4, "Other","Other")))))) %>% mutate(all_tier = factor(all_tier)) %>% 
+    filter(!is.na(all_tier))
+colSums(is.na(demo_data))
+addmargins(table(demo_data$Final_Status_rec, demo_data$Stu_Gender))
+demo_summary <- demo_data %>%  select(Final_Status_rec,aid_year,"Gender"=Stu_Gender,"Entry_college"=Stu_College, "Ethnicity"=Stu_Ethnicity,"Age"=Stu_Age, residency, all_tier ) %>% 
+    tbl_summary( by = c(Final_Status_rec), statistic = all_continuous() ~ "{mean} ({sd}) {min} {max}",
+            missing = "no", percent = "row"  ) %>%  add_n() %>% bold_labels()
+demo_summary
+ #summary table
+#
+demo_amount <-  
+    glm(Final_Status_rec ~     nnb_rec + Stu_Gender + nnb_rec*Stu_Gender , data = demo_data,  family = "binomial") %>%  #need_others + need_FDSL + need_PELL
+    tbl_regression(exponentiate =TRUE) %>%  # odds ratios
+    bold_labels() %>%  
+    bold_p()
+
+demo_amount
+
+summary(demo_m1 <- glm(Final_Status_rec ~      Stu_Gender , data = demo_data,  family = "binomial")) 
+exp(coef(demo_m1))
+addmargins(table(Gender=demo_data$Stu_Gender, NNB=demo_data$Final_Status_rec))
+
+```
+
+
+
+```{r import data 05-26-2022}
+
+fin_A_N_code <- FINANCIAL05122022 %>% select(AWARD_PROG_ID,"New_AWARD_COND_ID"=AWARD_COND_ID ) %>% unique()
+all_coa_temp <- read_csv("all_enc_coa_dist_master.csv") %>% filter(aid_year != 20212022)
+fin_trim <- FINANCIALDTL05122022[FINANCIALDTL05122022$REPT_TIME_FRAME>=20192020,]
+fin_dtl_code <-merge(fin_trim, fin_A_N_code, by=c("AWARD_PROG_ID" ), all.x = TRUE)
+fin_test <- fin_dtl_code %>% 
+    group_by( REPT_TIME_FRAME,New_AWARD_COND_ID,DETAIL_CODE_DESC,DETAIL_CODE) %>% 
+    summarise(Year_Amount = sum(TERM_AMOUNT), Count=n())
+colSums(is.na(fin_test))
+na_code <- fin_test[is.na(fin_test$DETAIL_CODE_DESC),]
+na_code
+
+fin_wide_data <- fin_dtl_code %>% group_by(UNIV_ROW_ID,REPT_TIME_FRAME,DETAIL_CODE) %>%  summarise(Year_Amount = sum(TERM_AMOUNT))
+fin_wide_data_1 <- fin_wide_data %>% group_by(UNIV_ROW_ID, REPT_TIME_FRAME ) %>%
+    pivot_wider(names_from = DETAIL_CODE, values_from = Year_Amount)
+fin_wide_data_1 %>% arrange(UNIV_ROW_ID, REPT_TIME_FRAME)
+fin_under <- merge(all_coa_temp[,c(1,2)], fin_wide_data, by.x=c("uwfid", "aid_year"), by.y=c("UNIV_ROW_ID", "REPT_TIME_FRAME"), all.x=TRUE) %>% 
+    mutate(DETAIL_CODE = ifelse(is.na(DETAIL_CODE), "NoAid", DETAIL_CODE),
+           Year_Amount = ifelse(is.na(Year_Amount), 0, Year_Amount)) %>% 
+    pivot_wider(names_from = DETAIL_CODE, values_from = Year_Amount) 
+colSums(is.na(fin_under))
+
+```
+
+
+
